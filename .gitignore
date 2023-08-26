@@ -1,0 +1,7 @@
+data
+encoder/SDL2.dll
+encoder/rvc.exe
+encoder/*.bat
+player/build
+player/.vscode
+player/cmake
