@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -43,6 +44,7 @@ func main() {
 		fmt.Println("Usage: rvc <command> <arguments> <input>")
 		return
 	}
+	argInputString := strings.Join(argInput, " ")
 
 	termInit()
 	defer termReset()
@@ -65,7 +67,7 @@ func main() {
 	termSetColor(TermReset)
 
 	fmt.Printf("Command: %s\n", command)
-	fmt.Printf("Input: %s\n", argInput[0])
+	fmt.Printf("Input: \"%s\"\n", argInputString)
 	fmt.Printf("Output: %s\n", argOutput)
 	fmt.Printf("Input palette: %s\n", argPalFrom)
 	fmt.Printf("Output palette: %s\n", argPalSave)
@@ -75,6 +77,8 @@ func main() {
 
 	switch command {
 	case "palette":
+		files := listFiles(argInputString)
+		fmt.Println(files)
 		fmt.Println("command \"palette\" is not implemented")
 	case "encode":
 		fmt.Println("command \"encode\" is not implemented")
