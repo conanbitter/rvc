@@ -42,3 +42,11 @@ func termSetTitle(title string) {
 func termSetColor(color TermColor) {
 	fmt.Printf("\033[%dm", color)
 }
+
+func termJumpUp(lines int) {
+	fmt.Printf("\033[%dF", lines)
+}
+
+func termClearLine() {
+	fmt.Print("\033[2K")
+}

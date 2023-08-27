@@ -89,4 +89,13 @@ func main() {
 	default:
 		fmt.Printf("Unknown command \"%s\"\n", command)
 	}
+
+	termClearLine()
+	fmt.Printf("Attempt \033[33m%2d / %d\033[0m\t\tTotal distance \033[33m%-10.5g\033[0m\tElapsed \033[33m%s\033[0m\n", 1, 5, 6.44574, "1h 25m 34s")
+	termClearLine()
+	fmt.Printf("Step \033[33m%4d / %d\033[0m\tChanged points \033[33m%-10d\033[0m\tRemaining \033[33m%s\033[0m\n", 345, 1000, 10456, "2h 25m 32s")
+
+	termJumpUp(2)
+	termClearLine()
+	fmt.Println("Test")
 }
