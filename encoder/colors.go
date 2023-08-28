@@ -151,7 +151,7 @@ func PaletteLoad(filename string) Palette {
 	}
 	size := len(fi) / 3
 	result := make(Palette, size)
-	for i, _ := range result {
+	for i := range result {
 		result[i].R = int(fi[i*3])
 		result[i].G = int(fi[i*3+1])
 		result[i].B = int(fi[i*3+2])
