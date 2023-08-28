@@ -2,7 +2,7 @@
 
 File extention *.pal
 
-Filesize determins palette size.
+Filesize determines palette size.
 
 All colors are sorted by luma from darkest to lightest.
 
