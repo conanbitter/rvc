@@ -6,6 +6,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -13,6 +14,11 @@ import (
 var regexRange = regexp.MustCompile(`^(.*?)\{\s*(\d+),\s*(\d+)\s*-\s*(\d+)\s*\}(.*)$`)
 var regexIndex = regexp.MustCompile(`^(.*?)%(\d+)%(.*)$`)
 var regexExt = regexp.MustCompile(`\.(tiff|tif|png|jpg|jpeg)$`)
+
+type IndexedFilename struct {
+	Filename string
+	Index    int
+}
 
 // Formats:
 // - folder                 (all image files: *.png, *.jpg, *.jpeg, *.tif, *.tiff)
@@ -89,22 +95,27 @@ func listFiles(input string) []string {
 	matchRegexp := regexp.MustCompile(fmt.Sprintf("^%s(\\d{%d})%s$", regexp.QuoteMeta(leftPart), digits, regexp.QuoteMeta(rightPart)))
 	entries, err := os.ReadDir(fpath)
 	if err == nil {
+		indexedFiles := make([]IndexedFilename, 0)
 		for _, entry := range entries {
-			if !entry.IsDir() {
-				groups = matchRegexp.FindStringSubmatch(entry.Name())
-				if len(groups) == 0 {
-					continue
-				}
-				index, _ := strconv.Atoi(groups[1])
-				if index < start {
-					continue
-				}
-				if end > 0 && index > end {
-					continue
-				}
-				// TODO add sorting by index
-				result = addAbsFile(result, path.Join(fpath, entry.Name()))
+			if entry.IsDir() {
+				continue
 			}
+			groups = matchRegexp.FindStringSubmatch(entry.Name())
+			if len(groups) == 0 {
+				continue
+			}
+			index, _ := strconv.Atoi(groups[1])
+			if index < start {
+				continue
+			}
+			if end > 0 && index > end {
+				continue
+			}
+			indexedFiles = append(indexedFiles, IndexedFilename{Filename: entry.Name(), Index: index})
+		}
+		sort.Slice(indexedFiles, func(i, j int) bool { return indexedFiles[i].Index < indexedFiles[j].Index })
+		for _, ifentry := range indexedFiles {
+			result = addAbsFile(result, path.Join(fpath, ifentry.Filename))
 		}
 		return result
 	}
