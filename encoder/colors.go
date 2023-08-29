@@ -188,3 +188,10 @@ func ImageLoad(filename string) ([]IntColor, int, int, error) {
 	}
 	return result, width, height, nil
 }
+
+func CalcPalette(input []string) Palette {
+	calc := NewColorCalc(256, 1000, 5)
+	calc.Input(input)
+	calc.Run()
+	return calc.GetPalette()
+}
