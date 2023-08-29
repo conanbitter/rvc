@@ -1,9 +1,15 @@
 package main
 
 import (
+	"image"
 	"math"
 	"os"
 	"sort"
+
+	_ "image/jpeg"
+	_ "image/png"
+
+	_ "golang.org/x/image/tiff"
 )
 
 type FloatColor struct {
@@ -158,4 +164,27 @@ func PaletteLoad(filename string) Palette {
 	}
 
 	return result
+}
+
+func ImageLoad(filename string) ([]IntColor, int, int, error) {
+	imgFile, err := os.Open(filename)
+	if err != nil {
+		return nil, 0, 0, err
+	}
+	defer imgFile.Close()
+	img, _, err := image.Decode(imgFile)
+	if err != nil {
+		return nil, 0, 0, err
+	}
+	bounds := img.Bounds()
+	width := bounds.Size().X
+	height := bounds.Size().Y
+	result := make([]IntColor, 0, width*height)
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			r, g, b, _ := img.At(x, y).RGBA()
+			result = append(result, IntColor{int(r / 257), int(g / 257), int(b / 257)}.Normalized())
+		}
+	}
+	return result, width, height, nil
 }
