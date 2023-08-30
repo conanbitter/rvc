@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -53,7 +52,7 @@ func listFiles(input string) []string {
 		if err == nil {
 			for _, entry := range entries {
 				if !entry.IsDir() && regexExt.MatchString(entry.Name()) {
-					result = addAbsFile(result, path.Join(input, entry.Name()))
+					result = addAbsFile(result, filepath.Join(input, entry.Name()))
 				}
 			}
 			return result
@@ -61,8 +60,8 @@ func listFiles(input string) []string {
 	}
 
 	// Pattern types
-	fpath := path.Dir(input)
-	fname := path.Base(input)
+	fpath := filepath.Dir(input)
+	fname := filepath.Base(input)
 	var (
 		digits    int
 		start     int
@@ -115,7 +114,7 @@ func listFiles(input string) []string {
 		}
 		sort.Slice(indexedFiles, func(i, j int) bool { return indexedFiles[i].Index < indexedFiles[j].Index })
 		for _, ifentry := range indexedFiles {
-			result = addAbsFile(result, path.Join(fpath, ifentry.Filename))
+			result = addAbsFile(result, filepath.Join(fpath, ifentry.Filename))
 		}
 		return result
 	}
