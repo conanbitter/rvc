@@ -93,7 +93,22 @@ func main() {
 	case "compress":
 		fmt.Println("command \"compress\" is not implemented")
 	case "preview":
-		fmt.Println("command \"preview\" is not implemented")
+		if argPalFrom == "" {
+			fmt.Println("Must specify palette filename (-pf, --pal-from)")
+		} else {
+			files := listFiles(argInputString)
+			if len(files) == 0 {
+				fmt.Println("Can't find any files")
+			} else {
+				dithering := FindDithering(argDithering)
+				if dithering == nil {
+					fmt.Println("Wrong dithering method")
+				} else {
+					pal := PaletteLoad(argPalFrom)
+					Preview(files, pal, dithering)
+				}
+			}
+		}
 	default:
 		fmt.Printf("Unknown command \"%s\"\n", command)
 	}

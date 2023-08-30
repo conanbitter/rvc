@@ -194,9 +194,9 @@ func FindDithering(name string) ImageDithering {
 		return DitheringPosterize
 	case "fs":
 		return DitheringFS
-	case "pattern8":
+	case "pat8":
 		return DitheringPattern8
-	case "pattern4":
+	case "pat4":
 		return DitheringPattern4
 	default:
 		return nil

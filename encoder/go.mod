@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	github.com/schollz/progressbar/v3 v3.13.1
+	github.com/veandco/go-sdl2 v0.4.35
 	golang.org/x/image v0.11.0
 	golang.org/x/sys v0.11.0
 )
