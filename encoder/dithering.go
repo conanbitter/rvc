@@ -27,7 +27,8 @@ type ImageDithering func(imageData []IntColor, pal Palette, width, height int) [
 func DitheringPosterize(imageData []IntColor, pal Palette, width, height int) []int {
 	idata := make([]int, len(imageData))
 	for i := range idata {
-		idata[i] = pal.GetIntColorIndex(imageData[i])
+		//idata[i] = pal.GetIntColorIndex(imageData[i])
+		idata[i] = pal.GetFloatColorIndex(imageData[i].ToFloatColor())
 	}
 	return idata
 }

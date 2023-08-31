@@ -51,10 +51,23 @@ func (color FloatColor) Normalized() FloatColor {
 		clipFloat(color.B)}
 }
 
+func (color FloatColor) Luma() float64 {
+	return 0.299*color.R + 0.587*color.G + 0.114*color.B
+}
+
 func (color FloatColor) Distance(other FloatColor) float64 {
 	return math.Sqrt((color.R-other.R)*(color.R-other.R) +
 		(color.G-other.G)*(color.G-other.G) +
 		(color.B-other.B)*(color.B-other.B))
+}
+
+func (color FloatColor) Difference(other FloatColor) float64 {
+	diffR := color.R - other.R
+	diffG := color.G - other.G
+	diffB := color.B - other.B
+	diffcolor := FloatColor{R: diffR * diffR, G: diffG * diffG, B: diffB * diffB}
+	diffluma := color.Luma() - other.Luma()
+	return diffcolor.Luma()*0.75 + diffluma*diffluma
 }
 
 func (color FloatColor) DistanceSquared(other FloatColor) float64 {
@@ -81,7 +94,7 @@ func (color IntColor) Normalized() IntColor {
 }
 
 func (color IntColor) Luma() float64 {
-	return 0.2126*float64(color.R) + 0.7152*float64(color.G) + 0.0722*float64(color.B)
+	return 0.299*float64(color.R) + 0.587*float64(color.G) + 0.114*float64(color.B)
 }
 
 func (color IntColor) Distance(other IntColor) uint64 {
@@ -141,7 +154,7 @@ func (pal Palette) GetFloatColorIndex(color FloatColor) int {
 	var minDist float64 = math.MaxFloat64
 	minIndex := 0
 	for i, other := range pal {
-		dist := color.Distance(other.ToFloatColor())
+		dist := color.Difference(other.ToFloatColor())
 		if dist < minDist {
 			minDist = dist
 			minIndex = i
