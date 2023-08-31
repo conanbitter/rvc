@@ -55,7 +55,9 @@ func (v *Viewer) SetTitle(title string) {
 }
 
 func (v *Viewer) LoadImage(index int) {
-	v.SetTitle(fmt.Sprintf("[%d/%d] %s", index+1, len(v.files), filepath.Base(v.files[index])))
+	v.SetTitle(fmt.Sprintf("Loading \"%s\"...", filepath.Base(v.files[index])))
+	var score1 float64 = 0
+	var score2 float64 = 0
 	if v.texture != nil {
 		v.texture.Destroy()
 	}
@@ -77,6 +79,8 @@ func (v *Viewer) LoadImage(index int) {
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
 			color := v.pal[imageIndexData[y*width+x]]
+			score1 += color.ToFloatColor().Distance(imageColorData[y*width+x].ToFloatColor())
+			score2 += color.ToFloatColor().Difference(imageColorData[y*width+x].ToFloatColor())
 			outputData[y*pitch+x*4] = byte(color.R)
 			outputData[y*pitch+x*4+1] = byte(color.G)
 			outputData[y*pitch+x*4+2] = byte(color.B)
@@ -88,6 +92,7 @@ func (v *Viewer) LoadImage(index int) {
 	v.w = width
 	v.h = height
 	v.SetScale(v.scale)
+	v.SetTitle(fmt.Sprintf("[%d/%d] %s (score: %f / %f )", index+1, len(v.files), filepath.Base(v.files[index]), score1, score2))
 }
 
 func (v *Viewer) SetScale(newScale int) {
@@ -144,6 +149,7 @@ func (v *Viewer) Run() error {
 }
 
 func Preview(files []string, palette Palette, dithering ImageDithering) {
+	palette.Sort()
 	viewer, err := ViewerNew(files, palette, dithering)
 	if err != nil {
 		panic(err)
