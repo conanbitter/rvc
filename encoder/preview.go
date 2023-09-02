@@ -126,15 +126,26 @@ func (v *Viewer) Run() error {
 					case sdl.K_5:
 						v.SetScale(5)
 					case sdl.K_RIGHT:
-						v.current++
-						if v.current >= len(v.files) {
-							v.current = 0
+						if (e.Keysym.Mod&sdl.KMOD_SHIFT > 0) && len(v.files) > 10 {
+							v.current = (v.current + 10) % len(v.files)
+						} else {
+							v.current++
+							if v.current >= len(v.files) {
+								v.current = 0
+							}
 						}
 						v.LoadImage(v.current)
 					case sdl.K_LEFT:
-						v.current--
-						if v.current < 0 {
-							v.current = len(v.files) - 1
+						if (e.Keysym.Mod&sdl.KMOD_SHIFT > 0) && len(v.files) > 10 {
+							v.current -= 10
+							if v.current < 0 {
+								v.current += len(v.files)
+							}
+						} else {
+							v.current--
+							if v.current < 0 {
+								v.current = len(v.files) - 1
+							}
 						}
 						v.LoadImage(v.current)
 					}
