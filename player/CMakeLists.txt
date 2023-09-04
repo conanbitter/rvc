@@ -7,6 +7,8 @@ project(player VERSION 0.1 LANGUAGES C)
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 
 add_executable(player
+    src/rvf_decode.h
+    src/rvf_decode.c
     src/main.c
 )
 
