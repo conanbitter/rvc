@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/schollz/progressbar/v3"
 )
 
 func main() {
@@ -89,7 +91,7 @@ func main() {
 			}
 		}
 	case "encode":
-		fmt.Println("command \"encode\" is not implemented")
+		RawEncode(argOutput, PaletteLoad(argPalFrom), listFiles(argInputString), float32(argFrameRate), FindDithering(argDithering))
 	case "compress":
 		fmt.Println("command \"compress\" is not implemented")
 	case "preview":
@@ -112,4 +114,40 @@ func main() {
 	default:
 		fmt.Printf("Unknown command \"%s\"\n", command)
 	}
+}
+
+func RawEncode(filename string, palette Palette, files []string, frameRate float32, dithering ImageDithering) {
+	if len(files) == 0 {
+		return
+	}
+
+	bar := progressbar.NewOptions(len(files),
+		progressbar.OptionFullWidth(),
+		progressbar.OptionShowCount(),
+		progressbar.OptionUseANSICodes(true))
+
+	_, width, height, err := ImageLoad(files[0])
+	if err != nil {
+		panic(err)
+	}
+
+	rvf := NewRVFfile(filename, palette, width, height, len(files), frameRate)
+	defer rvf.Close()
+
+	bar.Set(0)
+
+	for i, file := range files {
+		imageColorData, fwidth, fheight, err := ImageLoad(file)
+		if err != nil {
+			panic(err)
+		}
+		if fwidth != width || fheight != height {
+			panic(fmt.Errorf("frame size incorrect (%dx%d  must be %dx%d)", fwidth, fheight, width, height))
+		}
+		imageIndexData := dithering(imageColorData, palette, width, height)
+		rvf.WriteRaw(imageIndexData)
+		bar.Set(i + 1)
+	}
+
+	bar.Finish()
 }
