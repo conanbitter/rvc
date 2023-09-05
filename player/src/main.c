@@ -37,6 +37,31 @@ void convert_frame(uint8_t *data, int width, int height) {
     SDL_UnlockTexture(screen);
 }
 
+void adjust_frame(int width, int height) {
+    float videoAR = (float)video->width / (float)video->height;
+    float windowAR = (float)width / (float)height;
+    if (videoAR < windowAR) {
+        screen_rect.h = height;
+        screen_rect.y = 0;
+        screen_rect.w = height * videoAR;
+        screen_rect.x = (width - screen_rect.w) / 2;
+    } else {
+        screen_rect.w = width;
+        screen_rect.x = 0;
+        screen_rect.h = width / videoAR;
+        screen_rect.y = (height - screen_rect.h) / 2;
+    }
+}
+
+void set_scale(int scale) {
+    SDL_SetWindowSize(window, video->width * scale, video->height * scale);
+    SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+    screen_rect.x = 0;
+    screen_rect.y = 0;
+    screen_rect.w = video->width * scale;
+    screen_rect.h = video->height * scale;
+}
+
 void main(int argc, char *argv[]) {
     if (argc < 2) {
         printf("Use player <filename>");
@@ -87,6 +112,35 @@ void main(int argc, char *argv[]) {
             switch (event.type) {
                 case SDL_QUIT:
                     working = 0;
+                    break;
+                case SDL_WINDOWEVENT:
+                    if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
+                        int window_width = event.window.data1;
+                        int window_height = event.window.data2;
+                        adjust_frame(window_width, window_height);
+                    }
+                    break;
+                case SDL_KEYDOWN:
+                    switch (event.key.keysym.sym) {
+                        case SDLK_ESCAPE:
+                            working = 0;
+                            break;
+                        case SDLK_1:
+                            set_scale(1);
+                            break;
+                        case SDLK_2:
+                            set_scale(2);
+                            break;
+                        case SDLK_3:
+                            set_scale(3);
+                            break;
+                        case SDLK_4:
+                            set_scale(4);
+                            break;
+                        case SDLK_5:
+                            set_scale(5);
+                            break;
+                    }
                     break;
             }
         }
