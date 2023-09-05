@@ -23,13 +23,14 @@ typedef struct RVF_File {
     FILE* file;
     float frame_time;
     RVF_Color* palette;
-    uint8_t* frame_data;
+    uint8_t* data;
     int current_frame;
+    long frames_offset;
 } RVF_File;
 
 RVF_File* rvf_open(const char* filename);
 void rvf_close(RVF_File** file);
-// char* rvf_next_frame(RVF_File* file);
+uint8_t* rvf_next_frame(RVF_File* file);
 // char* rvf_prev_frame(RVF_File* file);
 //  char* rvf_seek(RVF_File* file, float seconds, int relative, int precise);
 //  char* rvf_seek(RVF_File* file, int frames, int relative, int precise);

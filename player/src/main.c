@@ -22,6 +22,21 @@ Uint32 *convert_palette(Uint32 format, RVF_Color *srcpalette, int colors) {
     return result;
 }
 
+void convert_frame(uint8_t *data, int width, int height) {
+    Uint32 *pixels;
+    int pitch;
+    SDL_LockTexture(screen, NULL, &pixels, &pitch);
+    pitch /= sizeof(Uint32);
+
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            pixels[y * pitch + x] = palette[data[y * width + x]];
+        }
+    }
+
+    SDL_UnlockTexture(screen);
+}
+
 void main(int argc, char *argv[]) {
     if (argc < 2) {
         printf("Use player <filename>");
@@ -40,19 +55,33 @@ void main(int argc, char *argv[]) {
            video->length,
            1.0f / video->frame_time);
 
+    screen_width = video->width;
+    screen_height = video->height;
+
     SDL_Init(SDL_INIT_VIDEO);
     window = SDL_CreateWindow("RVF", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, screen_width, screen_height, SDL_WINDOW_RESIZABLE);
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-    screen = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, 100, 100);
+    screen = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, video->width, video->height);
 
     Uint32 format;
     SDL_QueryTexture(screen, &format, NULL, NULL, NULL);
     palette = convert_palette(format, video->palette, video->colors);
-    screen_rect.w = 100;
-    screen_rect.h = 100;
+    screen_rect.w = screen_width;
+    screen_rect.h = screen_height;
 
     SDL_Event event;
     int working = 1;
+
+    uint8_t *data = rvf_next_frame(video);
+    if (data == NULL) {
+        working = 0;
+    }
+    convert_frame(data, video->width, video->height);
+
+    float elapsed = 0;
+    float freq = SDL_GetPerformanceFrequency();
+    Uint64 last_timer = SDL_GetPerformanceCounter();
+
     while (working) {
         while (SDL_PollEvent(&event)) {
             switch (event.type) {
@@ -63,6 +92,19 @@ void main(int argc, char *argv[]) {
         }
         SDL_RenderCopy(renderer, screen, NULL, &screen_rect);
         SDL_RenderPresent(renderer);
+
+        elapsed += (float)(SDL_GetPerformanceCounter() - last_timer) / freq;
+        last_timer = SDL_GetPerformanceCounter();
+
+        if (elapsed > video->frame_time) {
+            uint8_t *data = rvf_next_frame(video);
+            if (data == NULL) {
+                working = 0;
+            }
+            convert_frame(data, video->width, video->height);
+            elapsed -= video->frame_time;
+        }
+
         SDL_Delay(5);
     }
 
