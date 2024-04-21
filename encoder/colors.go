@@ -7,7 +7,7 @@ import (
 	"sort"
 
 	_ "image/jpeg"
-	_ "image/png"
+	"image/png"
 
 	_ "golang.org/x/image/tiff"
 )
@@ -200,6 +200,32 @@ func ImageLoad(filename string) ([]IntColor, int, int, error) {
 		}
 	}
 	return result, width, height, nil
+}
+
+func ImageSave(filename string, data []int, width int, height int, pal Palette) error {
+	img := image.NewRGBA(image.Rectangle{image.Point{0, 0}, image.Point{width, height}})
+	ind := 0
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			colorind := data[ind]
+			color := pal[colorind]
+			ind++
+			offset := img.PixOffset(x, y)
+			img.Pix[offset] = uint8(color.R)
+			img.Pix[offset+1] = uint8(color.G)
+			img.Pix[offset+2] = uint8(color.B)
+			img.Pix[offset+3] = 255
+		}
+	}
+	imgFile, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer imgFile.Close()
+	if err = png.Encode(imgFile, img); err != nil {
+		return err
+	}
+	return nil
 }
 
 func CalcPalette(input []string) Palette {

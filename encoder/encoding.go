@@ -28,6 +28,6 @@ type EncodedBlock struct {
 	PixelData [][]int
 }
 
-func ImageToBlocks(image []int, width int, height int) []ImageBlock {}
+//func ImageToBlocks(image []int, width int, height int) []ImageBlock {}
 
-func (block ImageBlock) Compare(other ImageBlock) float64 {}
+//func (block ImageBlock) Compare(other ImageBlock) float64 {}
