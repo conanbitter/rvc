@@ -30,6 +30,18 @@ type EncodedBlock struct {
 	PixelData [][]int
 }
 
+type EncodeSuggestion struct {
+	Encoding  byte
+	MetaData  []int
+	PixelData []int
+	First     bool
+	Result    ImageBlock
+}
+
+type FrameEncoder struct {
+	chain []EncodedBlock
+}
+
 func ImageToBlocks(image []int, width int, height int) ([]ImageBlock, int, int) {
 	bw := int(math.Ceil(float64(width) / 4))
 	bh := int(math.Ceil(float64(height) / 4))
@@ -78,4 +90,30 @@ func BlocksToImage(blocks []ImageBlock, blockWidth int, blockHeight int) ([]int,
 	return result, width, height
 }
 
-//func (block ImageBlock) Compare(other ImageBlock) float64 {}
+func CompareBlocks(a *ImageBlock, b *ImageBlock, pal Palette) float64 {
+	var acc float64 = 0.0
+	for i, col := range a {
+		acc += pal[col].ToFloatColor().Difference(pal[b[i]].ToFloatColor())
+	}
+	return acc
+}
+
+func NewEncoder() *FrameEncoder {
+	return &FrameEncoder{
+		chain: make([]EncodedBlock, 0),
+	}
+}
+
+func (encoder *FrameEncoder) AddSuggestion(suggestion EncodeSuggestion) {
+	if suggestion.First {
+		encoder.chain = append(encoder.chain, EncodedBlock{
+			BlockType: suggestion.Encoding,
+			Count:     1,
+			MetaData:  suggestion.MetaData,
+			PixelData: [][]int{suggestion.PixelData},
+		})
+	} else {
+		lastElement := &encoder.chain[len(encoder.chain)-1]
+		lastElement.PixelData = append(lastElement.PixelData, suggestion.PixelData)
+	}
+}
