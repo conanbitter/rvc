@@ -40,3 +40,11 @@ func EncPreview(filename string) {
 	img, imwidth, imheight := EncLoadRaw(filename)
 	ImageSave("../data/enctest/"+filename+"_prev.png", img, imwidth, imheight, pal)
 }
+
+func EncBlockTest(filename string) {
+	pal := PaletteLoad("../data/enctest/common.pal")
+	img, imwidth, imheight := EncLoadRaw(filename)
+	blocks, bw, bh := ImageToBlocks(img, imwidth, imheight)
+	outimg, outw, outh := BlocksToImage(blocks, bw, bh)
+	ImageSave("../data/enctest/"+filename+"_blocks.png", outimg, outw, outh, pal)
+}

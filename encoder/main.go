@@ -10,8 +10,10 @@ import (
 )
 
 func main() {
+	//EncSaveRaw("06")
 	//EncPreview("06")
-	//os.Exit(0)
+	EncBlockTest("06")
+	os.Exit(0)
 
 	if len(os.Args) <= 1 {
 		fmt.Println("Usage: rvc <command> <arguments> <input>")
