@@ -193,6 +193,7 @@ func (encoder *FrameEncoder) Encode(frame []ImageBlock) {
 	encoder.chain = make([]EncodedBlock, 0)
 	var counts [7]int
 	treshold := float64(0.02)
+	newLastFrame := make([]ImageBlock, len(frame))
 	var last ImageBlock
 	for i, block := range frame {
 		var suggestion *EncodeSuggestion
@@ -202,6 +203,7 @@ func (encoder *FrameEncoder) Encode(frame []ImageBlock) {
 			if suggestion.Score < treshold {
 				encoder.AddSuggestion(suggestion)
 				last = *suggestion.Result
+				newLastFrame[i] = *suggestion.Result
 				counts[6]++
 				continue
 			}
@@ -212,6 +214,7 @@ func (encoder *FrameEncoder) Encode(frame []ImageBlock) {
 			if suggestion.Score < treshold {
 				encoder.AddSuggestion(suggestion)
 				last = *suggestion.Result
+				newLastFrame[i] = *suggestion.Result
 				counts[0]++
 				continue
 			}
@@ -221,6 +224,7 @@ func (encoder *FrameEncoder) Encode(frame []ImageBlock) {
 		if suggestion.Score < treshold {
 			encoder.AddSuggestion(suggestion)
 			last = *suggestion.Result
+			newLastFrame[i] = *suggestion.Result
 			counts[1]++
 			continue
 		}
@@ -229,6 +233,7 @@ func (encoder *FrameEncoder) Encode(frame []ImageBlock) {
 		if suggestion.Score < treshold {
 			encoder.AddSuggestion(suggestion)
 			last = *suggestion.Result
+			newLastFrame[i] = *suggestion.Result
 			counts[2]++
 			continue
 		}
@@ -237,6 +242,7 @@ func (encoder *FrameEncoder) Encode(frame []ImageBlock) {
 		if suggestion.Score < treshold {
 			encoder.AddSuggestion(suggestion)
 			last = *suggestion.Result
+			newLastFrame[i] = *suggestion.Result
 			counts[3]++
 			continue
 		}
@@ -245,6 +251,7 @@ func (encoder *FrameEncoder) Encode(frame []ImageBlock) {
 		if suggestion.Score < treshold {
 			encoder.AddSuggestion(suggestion)
 			last = *suggestion.Result
+			newLastFrame[i] = *suggestion.Result
 			counts[4]++
 			continue
 		}
@@ -252,10 +259,11 @@ func (encoder *FrameEncoder) Encode(frame []ImageBlock) {
 		suggestion = ChooseRaw(&block)
 		encoder.AddSuggestion(suggestion)
 		last = *suggestion.Result
+		newLastFrame[i] = *suggestion.Result
 		counts[5]++
 	}
 	fmt.Printf("  skip:   %d\n  repeat: %d\n  solid:  %d\n  pal2:   %d\n  pal4:   %d\n  pal8:   %d\n  raw:    %d\n", counts[6], counts[0], counts[1], counts[2], counts[3], counts[4], counts[5])
-	encoder.lastFrame = encoder.Decode(encoder.lastFrame)
+	encoder.lastFrame = newLastFrame
 }
 
 //endregion
@@ -263,7 +271,7 @@ func (encoder *FrameEncoder) Encode(frame []ImageBlock) {
 //region CHOOSING
 
 func ChooseSkip(source *ImageBlock, prev *ImageBlock, pal Palette) *EncodeSuggestion {
-	result := *source
+	result := *prev
 	return &EncodeSuggestion{
 		Encoding:  ENC_SKIP,
 		MetaData:  nil,
@@ -294,7 +302,7 @@ func ChooseRepeat(source *ImageBlock, last *ImageBlock, pal Palette) *EncodeSugg
 		PixelData: nil,
 		First:     true,
 		Score:     CompareBlocks(source, last, pal),
-		Result:    source,
+		Result:    last,
 	}
 }
 
