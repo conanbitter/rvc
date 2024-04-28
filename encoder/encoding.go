@@ -117,3 +117,51 @@ func (encoder *FrameEncoder) AddSuggestion(suggestion EncodeSuggestion) {
 		lastElement.PixelData = append(lastElement.PixelData, suggestion.PixelData)
 	}
 }
+
+func ChooseSolid(source *ImageBlock, pal Palette) (color int, score float64, result *ImageBlock) {
+	color = -1
+	score = math.MaxFloat64
+
+	for i, palcolor := range pal {
+		var scoreacc float64 = 0
+		for _, pixel := range source {
+			scoreacc += palcolor.ToFloatColor().Difference(pal[pixel].ToFloatColor())
+		}
+		if scoreacc < score {
+			color = i
+			score = scoreacc
+		}
+	}
+	result = &ImageBlock{}
+	for i, _ := range result {
+		result[i] = color
+	}
+	return
+}
+
+func chooseColor(source int, pal Palette, subpal []int) int {
+	best := math.MaxFloat64
+	result := 0
+	for i, index := range subpal {
+		dist := pal[source].ToFloatColor().Difference(pal[index].ToFloatColor())
+		if dist < best {
+			result = i
+			best = dist
+		}
+	}
+	return result
+}
+
+func ApplySubpal(source *ImageBlock, pal Palette, subpal []int) (data *ImageBlock, result *ImageBlock) {
+	data = &ImageBlock{}
+	result = &ImageBlock{}
+
+	for i, color := range source {
+		newColor := chooseColor(color, pal, subpal)
+		data[i] = newColor
+		result[i] = subpal[newColor]
+	}
+	return
+}
+
+//func CalcSubpal(source *ImageBlock, pal Palette, colorNum int) []int {}
