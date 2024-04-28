@@ -52,7 +52,7 @@ func EncBlockTest(filename string) {
 	ImageSave("../data/enctest/"+filename+"_blocks.png", outimg, outw, outh, pal)
 }
 
-func EncBlockTest2(filename string, useHilbert bool, debugOutput bool) {
+func EncBlockTest2(filename string, useHilbert bool, debugOutput bool, useEncoder *FrameEncoder) *FrameEncoder {
 	fmt.Println("Loading palette")
 	pal := PaletteLoad("../data/enctest/common.pal")
 	fmt.Println("Loading image")
@@ -71,9 +71,15 @@ func EncBlockTest2(filename string, useHilbert bool, debugOutput bool) {
 	}
 
 	fmt.Println("Encoding")
-	encoder := NewEncoder(pal)
+	var encoder *FrameEncoder
+	if useEncoder != nil {
+		encoder = useEncoder
+	} else {
+		encoder = NewEncoder(pal)
+	}
+	lastFrame := encoder.lastFrame
 	encoder.Encode(blocks)
-	blocksRes := encoder.Decode()
+	blocksRes := encoder.Decode(lastFrame)
 
 	if useHilbert {
 		fmt.Println("Applying inverse Hilbert curve")
@@ -98,9 +104,11 @@ func EncBlockTest2(filename string, useHilbert bool, debugOutput bool) {
 	}
 
 	fmt.Println("Wrapping")
+	fmt.Println(len(blocksRes), len(blocks))
 	outimg, outw, outh := BlocksToImage(blocksRes, bw, bh)
 	fmt.Println("Saving image")
 	ImageSave("../data/enctest/"+filename+"_enc.png", outimg, outw, outh, pal)
+	return encoder
 }
 
 var BlockColors = [][]byte{

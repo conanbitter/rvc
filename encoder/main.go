@@ -10,16 +10,19 @@ import (
 )
 
 func main() {
-	//EncSaveRaw("06")
-	//EncPreview("06")
+	//EncSaveRaw("12")
+	//EncPreview("12")
 	useHilbert := true
 	debugOutput := true
-	EncBlockTest2("01", useHilbert, debugOutput)
+	/*EncBlockTest2("01", useHilbert, debugOutput)
 	EncBlockTest2("02", useHilbert, debugOutput)
 	EncBlockTest2("03", useHilbert, debugOutput)
 	EncBlockTest2("04", useHilbert, debugOutput)
 	EncBlockTest2("05", useHilbert, debugOutput)
-	EncBlockTest2("06", useHilbert, debugOutput)
+	EncBlockTest2("06", useHilbert, debugOutput)*/
+	enc := EncBlockTest2("10", useHilbert, debugOutput, nil)
+	EncBlockTest2("11", useHilbert, debugOutput, enc)
+	EncBlockTest2("12", useHilbert, debugOutput, enc)
 	//DebugDrawCurve(320, 240, "../data/enctest/hilbert.png")
 	os.Exit(0)
 
