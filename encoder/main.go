@@ -12,7 +12,7 @@ import (
 func main() {
 	//EncSaveRaw("06")
 	//EncPreview("06")
-	EncBlockTest("06")
+	EncBlockTest2("06")
 	os.Exit(0)
 
 	if len(os.Args) <= 1 {

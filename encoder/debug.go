@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/binary"
+	"fmt"
 	"os"
 )
 
@@ -47,4 +48,23 @@ func EncBlockTest(filename string) {
 	blocks, bw, bh := ImageToBlocks(img, imwidth, imheight)
 	outimg, outw, outh := BlocksToImage(blocks, bw, bh)
 	ImageSave("../data/enctest/"+filename+"_blocks.png", outimg, outw, outh, pal)
+}
+
+func EncBlockTest2(filename string) {
+	fmt.Println("Loading palette")
+	pal := PaletteLoad("../data/enctest/common.pal")
+	fmt.Println("Loading image")
+	img, imwidth, imheight := EncLoadRaw(filename)
+	fmt.Println("Unwrapping")
+	blocks, bw, bh := ImageToBlocks(img, imwidth, imheight)
+
+	fmt.Println("Encoding")
+	encoder := NewEncoder(pal)
+	encoder.Encode(blocks)
+	blocksRes := encoder.Decode()
+
+	fmt.Println("Wrapping")
+	outimg, outw, outh := BlocksToImage(blocksRes, bw, bh)
+	fmt.Println("Saving image")
+	ImageSave("../data/enctest/"+filename+"_enc.png", outimg, outw, outh, pal)
 }

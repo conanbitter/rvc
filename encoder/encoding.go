@@ -1,6 +1,9 @@
 package main
 
-import "math"
+import (
+	"fmt"
+	"math"
+)
 
 type ImageBlock [16]int
 
@@ -151,14 +154,57 @@ func (encoder *FrameEncoder) Decode() []ImageBlock {
 
 func (encoder *FrameEncoder) Encode(frame []ImageBlock) {
 	encoder.chain = make([]EncodedBlock, 0)
+	var counts [5]int
+	treshold := float64(0.01)
 	for _, block := range frame {
-		encoder.AddSuggestion(ChooseSolid(&block, encoder.pal))
+		suggestion := ChooseSolid(&block, encoder.pal)
+		if suggestion.Score < treshold {
+			encoder.AddSuggestion(suggestion)
+			counts[0]++
+			continue
+		}
+		suggestion = ChooseSubColor(&block, encoder.pal, ENC_PAL2)
+		if suggestion.Score < treshold {
+			encoder.AddSuggestion(suggestion)
+			counts[1]++
+			continue
+		}
+		suggestion = ChooseSubColor(&block, encoder.pal, ENC_PAL4)
+		if suggestion.Score < treshold {
+			encoder.AddSuggestion(suggestion)
+			counts[2]++
+			continue
+		}
+		suggestion = ChooseSubColor(&block, encoder.pal, ENC_PAL8)
+		if suggestion.Score < treshold {
+			encoder.AddSuggestion(suggestion)
+			counts[3]++
+			continue
+		}
+		suggestion = ChooseRaw(&block)
+		encoder.AddSuggestion(suggestion)
+		counts[4]++
 	}
+	fmt.Println(len(frame), len(encoder.chain))
+	fmt.Printf("  solid: %d\n  pal2: %d\n  pal4: %d\n  pal8: %d\n  raw: %d\n", counts[0], counts[1], counts[2], counts[3], counts[4])
 }
 
 //endregion
 
 //region CHOOSING
+
+func ChooseRaw(source *ImageBlock) *EncodeSuggestion {
+	result := make([]int, 16)
+	copy(result, (*source)[:])
+	return &EncodeSuggestion{
+		Encoding:  ENC_RAW,
+		MetaData:  nil,
+		PixelData: result,
+		First:     true,
+		Score:     0,
+		Result:    source,
+	}
+}
 
 func ChooseSolid(source *ImageBlock, pal Palette) *EncodeSuggestion {
 	color := -1
