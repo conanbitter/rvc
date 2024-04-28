@@ -42,6 +42,8 @@ type FrameEncoder struct {
 	chain []EncodedBlock
 }
 
+//region BLOCKS
+
 func ImageToBlocks(image []int, width int, height int) ([]ImageBlock, int, int) {
 	bw := int(math.Ceil(float64(width) / 4))
 	bh := int(math.Ceil(float64(height) / 4))
@@ -98,6 +100,10 @@ func CompareBlocks(a *ImageBlock, b *ImageBlock, pal Palette) float64 {
 	return acc
 }
 
+//endregion
+
+//region ENCODER
+
 func NewEncoder() *FrameEncoder {
 	return &FrameEncoder{
 		chain: make([]EncodedBlock, 0),
@@ -117,6 +123,10 @@ func (encoder *FrameEncoder) AddSuggestion(suggestion EncodeSuggestion) {
 		lastElement.PixelData = append(lastElement.PixelData, suggestion.PixelData)
 	}
 }
+
+//endregion
+
+//region CHOOSING
 
 func ChooseSolid(source *ImageBlock, pal Palette) (color int, score float64, result *ImageBlock) {
 	color = -1
@@ -164,4 +174,18 @@ func ApplySubpal(source *ImageBlock, pal Palette, subpal []int) (data *ImageBloc
 	return
 }
 
-//func CalcSubpal(source *ImageBlock, pal Palette, colorNum int) []int {}
+func CalcSubpal(source *ImageBlock, pal Palette, colorNum int) []int {
+	calc := NewColorCalcMini(colorNum, 1000, 5)
+	calc.Input(source, pal)
+	calc.Run()
+	return calc.GetSubPal(pal)
+}
+
+func ChooseSubColor(source *ImageBlock, pal Palette, colorNum int) (data []int, pixels *ImageBlock, score float64, result *ImageBlock) {
+	data = CalcSubpal(source, pal, colorNum)
+	pixels, result = ApplySubpal(source, pal, data)
+	score = CompareBlocks(source, result, pal)
+	return
+}
+
+//endregion
