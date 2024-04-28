@@ -133,20 +133,26 @@ func (encoder *FrameEncoder) AddSuggestion(suggestion *EncodeSuggestion) {
 func (encoder *FrameEncoder) Decode() []ImageBlock {
 	result := make([]ImageBlock, 0)
 	var block ImageBlock
+	var last ImageBlock
 	for _, enc := range encoder.chain {
 		switch enc.BlockType {
+		case ENC_REPEAT:
+			result = append(result, last)
 		case ENC_SOLID:
 			for i := range block {
 				block[i] = enc.MetaData[0]
 			}
 			result = append(result, block)
+			last = block
 		case ENC_PAL2, ENC_PAL4, ENC_PAL8:
 			for i := range block {
 				block[i] = enc.MetaData[enc.PixelData[0][i]]
 			}
 			result = append(result, block)
+			last = block
 		case ENC_RAW:
 			result = append(result, ImageBlock(enc.PixelData[0]))
+			last = block
 		}
 	}
 	return result
@@ -154,39 +160,64 @@ func (encoder *FrameEncoder) Decode() []ImageBlock {
 
 func (encoder *FrameEncoder) Encode(frame []ImageBlock) {
 	encoder.chain = make([]EncodedBlock, 0)
-	var counts [5]int
+	var counts [6]int
 	treshold := float64(0.01)
+	var last ImageBlock
+	first := true
 	for _, block := range frame {
-		suggestion := ChooseSolid(&block, encoder.pal)
-		if suggestion.Score < treshold {
-			encoder.AddSuggestion(suggestion)
-			counts[0]++
-			continue
+		var suggestion *EncodeSuggestion
+
+		if first {
+			first = false
+		} else {
+			suggestion = ChooseRepeat(&block, &last, encoder.pal)
+			if suggestion.Score < treshold {
+				encoder.AddSuggestion(suggestion)
+				last = *suggestion.Result
+				counts[0]++
+				continue
+			}
 		}
-		suggestion = ChooseSubColor(&block, encoder.pal, ENC_PAL2)
+
+		suggestion = ChooseSolid(&block, encoder.pal)
 		if suggestion.Score < treshold {
 			encoder.AddSuggestion(suggestion)
+			last = *suggestion.Result
 			counts[1]++
 			continue
 		}
-		suggestion = ChooseSubColor(&block, encoder.pal, ENC_PAL4)
+
+		suggestion = ChooseSubColor(&block, encoder.pal, ENC_PAL2)
 		if suggestion.Score < treshold {
 			encoder.AddSuggestion(suggestion)
+			last = *suggestion.Result
 			counts[2]++
 			continue
 		}
-		suggestion = ChooseSubColor(&block, encoder.pal, ENC_PAL8)
+
+		suggestion = ChooseSubColor(&block, encoder.pal, ENC_PAL4)
 		if suggestion.Score < treshold {
 			encoder.AddSuggestion(suggestion)
+			last = *suggestion.Result
 			counts[3]++
 			continue
 		}
+
+		suggestion = ChooseSubColor(&block, encoder.pal, ENC_PAL8)
+		if suggestion.Score < treshold {
+			encoder.AddSuggestion(suggestion)
+			last = *suggestion.Result
+			counts[4]++
+			continue
+		}
+
 		suggestion = ChooseRaw(&block)
 		encoder.AddSuggestion(suggestion)
-		counts[4]++
+		last = *suggestion.Result
+		counts[5]++
 	}
 	fmt.Println(len(frame), len(encoder.chain))
-	fmt.Printf("  solid: %d\n  pal2: %d\n  pal4: %d\n  pal8: %d\n  raw: %d\n", counts[0], counts[1], counts[2], counts[3], counts[4])
+	fmt.Printf("  repeat: %d\n  solid:  %d\n  pal2:   %d\n  pal4:   %d\n  pal8:   %d\n  raw:    %d\n", counts[0], counts[1], counts[2], counts[3], counts[4], counts[5])
 }
 
 //endregion
@@ -202,6 +233,17 @@ func ChooseRaw(source *ImageBlock) *EncodeSuggestion {
 		PixelData: result,
 		First:     true,
 		Score:     0,
+		Result:    source,
+	}
+}
+
+func ChooseRepeat(source *ImageBlock, last *ImageBlock, pal Palette) *EncodeSuggestion {
+	return &EncodeSuggestion{
+		Encoding:  ENC_REPEAT,
+		MetaData:  nil,
+		PixelData: nil,
+		First:     true,
+		Score:     CompareBlocks(source, last, pal),
 		Result:    source,
 	}
 }
