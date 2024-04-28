@@ -161,7 +161,7 @@ func (encoder *FrameEncoder) Decode() []ImageBlock {
 func (encoder *FrameEncoder) Encode(frame []ImageBlock) {
 	encoder.chain = make([]EncodedBlock, 0)
 	var counts [6]int
-	treshold := float64(0.01)
+	treshold := float64(0.05)
 	var last ImageBlock
 	first := true
 	for _, block := range frame {

@@ -44,11 +44,39 @@ func hindex2xy(hindex int, n int) Point {
 }
 
 func GetHilbertCurve(width int, height int) []int {
-	size := width
-	result := make([]int, size*size)
+	var size int
+	if width > height {
+		size = width
+	} else {
+		size = height
+	}
+	n := 1
+	for n < size {
+		n *= 2
+	}
+	size = n
+	offsetx := (size - width) / 2
+	offsety := (size - height) / 2
+	//fmt.Println(size, offsetx, offsety)
+
+	curveInd := 0
+
+	result := make([]int, width*height)
 	for i := range result {
-		p := hindex2xy(i, size)
-		result[i] = p.X + p.Y*width
+		var p Point
+		for {
+			p = hindex2xy(curveInd, size)
+			curveInd++
+			if (p.X >= offsetx &&
+				p.X < offsetx+width &&
+				p.Y >= offsety &&
+				p.Y < offsety+height) ||
+				curveInd >= size*size {
+				break
+			}
+		}
+		result[i] = p.X - offsetx + (p.Y-offsety)*width
+		//result[i] = p.X + p.Y*width
 	}
 	return result
 }
@@ -84,8 +112,8 @@ func drawLine(x1 int, y1 int, x2 int, y2 int, image *image.Gray) {
 }
 
 func DebugDrawCurve(width int, height int, filename string) {
-	imwidth := width * 3
-	imheight := height * 3
+	imwidth := width * 3   //+ 10
+	imheight := height * 3 //+ 10
 	img := image.NewGray(image.Rectangle{image.Point{0, 0}, image.Point{imwidth, imheight}})
 	for i := 0; i < imwidth*imheight; i++ {
 		img.Pix[i] = 255

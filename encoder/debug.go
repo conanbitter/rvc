@@ -50,18 +50,37 @@ func EncBlockTest(filename string) {
 	ImageSave("../data/enctest/"+filename+"_blocks.png", outimg, outw, outh, pal)
 }
 
-func EncBlockTest2(filename string) {
+func EncBlockTest2(filename string, useHilbert bool) {
 	fmt.Println("Loading palette")
 	pal := PaletteLoad("../data/enctest/common.pal")
 	fmt.Println("Loading image")
 	img, imwidth, imheight := EncLoadRaw(filename)
 	fmt.Println("Unwrapping")
 	blocks, bw, bh := ImageToBlocks(img, imwidth, imheight)
+	var curve []int
+	if useHilbert {
+		fmt.Println("Applying Hilbert curve")
+		curve = GetHilbertCurve(bw, bh)
+		hblocks := make([]ImageBlock, len(blocks))
+		for i, n := range curve {
+			hblocks[i] = blocks[n]
+		}
+		blocks = hblocks
+	}
 
 	fmt.Println("Encoding")
 	encoder := NewEncoder(pal)
 	encoder.Encode(blocks)
 	blocksRes := encoder.Decode()
+
+	if useHilbert {
+		fmt.Println("Applying inverse Hilbert curve")
+		hblocksRes := make([]ImageBlock, len(blocksRes))
+		for i, n := range curve {
+			hblocksRes[n] = blocksRes[i]
+		}
+		blocksRes = hblocksRes
+	}
 
 	fmt.Println("Wrapping")
 	outimg, outw, outh := BlocksToImage(blocksRes, bw, bh)

@@ -12,13 +12,14 @@ import (
 func main() {
 	//EncSaveRaw("06")
 	//EncPreview("06")
-	/*EncBlockTest2("01")
-	EncBlockTest2("02")
-	EncBlockTest2("03")
-	EncBlockTest2("04")
-	EncBlockTest2("05")
-	EncBlockTest2("06")*/
-	DebugDrawCurve(32, 32, "../data/enctest/hilbert.png")
+	useHilbert := true
+	EncBlockTest2("01", useHilbert)
+	EncBlockTest2("02", useHilbert)
+	EncBlockTest2("03", useHilbert)
+	EncBlockTest2("04", useHilbert)
+	EncBlockTest2("05", useHilbert)
+	EncBlockTest2("06", useHilbert)
+	//DebugDrawCurve(320, 240, "../data/enctest/hilbert.png")
 	os.Exit(0)
 
 	if len(os.Args) <= 1 {
