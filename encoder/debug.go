@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
+	"image"
+	"image/png"
 	"os"
 )
 
@@ -50,7 +52,7 @@ func EncBlockTest(filename string) {
 	ImageSave("../data/enctest/"+filename+"_blocks.png", outimg, outw, outh, pal)
 }
 
-func EncBlockTest2(filename string, useHilbert bool) {
+func EncBlockTest2(filename string, useHilbert bool, debugOutput bool) {
 	fmt.Println("Loading palette")
 	pal := PaletteLoad("../data/enctest/common.pal")
 	fmt.Println("Loading image")
@@ -82,8 +84,63 @@ func EncBlockTest2(filename string, useHilbert bool) {
 		blocksRes = hblocksRes
 	}
 
+	if debugOutput {
+		debugImage := encoder.DebugDecode()
+		if useHilbert {
+			hdeb := make([]int, len(debugImage))
+			for i, n := range curve {
+				hdeb[n] = debugImage[i]
+			}
+			debugImage = hdeb
+		}
+		DebugDecodeSave(debugImage, bw, bh, "../data/enctest/"+filename+"_deb.png")
+
+	}
+
 	fmt.Println("Wrapping")
 	outimg, outw, outh := BlocksToImage(blocksRes, bw, bh)
 	fmt.Println("Saving image")
 	ImageSave("../data/enctest/"+filename+"_enc.png", outimg, outw, outh, pal)
+}
+
+var BlockColors = [][]byte{
+	{128, 128, 128}, // SKIP   CONT.
+	{128, 0, 0},     // REPEAT CONT.
+	{0, 128, 0},     // SOLID  CONT.
+	{128, 128, 0},   // PAL2   CONT.
+	{128, 0, 128},   // PAL4   CONT.
+	{0, 128, 128},   // PAL8   CONT.
+	{0, 0, 128},     // RAW    CONT.
+	{0, 0, 0},
+	{255, 255, 255}, // SKIP   FIRST
+	{255, 0, 0},     // REPEAT FIRST
+	{0, 255, 0},     // SOLID  FIRST
+	{255, 255, 0},   // PAL2   FIRST
+	{255, 0, 255},   // PAL4   FIRST
+	{0, 255, 255},   // PAL8   FIRST
+	{0, 0, 255},     // RAW    FIRST
+}
+
+func DebugDecodeSave(data []int, width int, height int, filename string) {
+	img := image.NewRGBA(image.Rectangle{image.Point{0, 0}, image.Point{width, height}})
+	ind := 0
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			color := BlockColors[data[ind]]
+			ind++
+			offset := img.PixOffset(x, y)
+			img.Pix[offset] = color[0]
+			img.Pix[offset+1] = color[1]
+			img.Pix[offset+2] = color[2]
+			img.Pix[offset+3] = 255
+		}
+	}
+	imgFile, err := os.Create(filename)
+	if err != nil {
+		panic(err)
+	}
+	defer imgFile.Close()
+	if err = png.Encode(imgFile, img); err != nil {
+		panic(err)
+	}
 }

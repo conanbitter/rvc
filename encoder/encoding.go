@@ -158,10 +158,34 @@ func (encoder *FrameEncoder) Decode() []ImageBlock {
 	return result
 }
 
+func (encoder *FrameEncoder) DebugDecode() []int {
+	result := make([]int, 0)
+	for _, enc := range encoder.chain {
+		var col int
+		switch enc.BlockType {
+		case ENC_REPEAT:
+			col = 1
+		case ENC_SOLID:
+			col = 2
+		case ENC_PAL2:
+			col = 3
+		case ENC_PAL4:
+			col = 4
+		case ENC_PAL8:
+			col = 5
+		case ENC_RAW:
+			col = 6
+		}
+		col = col | 0b1000
+		result = append(result, col)
+	}
+	return result
+}
+
 func (encoder *FrameEncoder) Encode(frame []ImageBlock) {
 	encoder.chain = make([]EncodedBlock, 0)
 	var counts [6]int
-	treshold := float64(0.05)
+	treshold := float64(0.02)
 	var last ImageBlock
 	first := true
 	for _, block := range frame {

@@ -13,12 +13,13 @@ func main() {
 	//EncSaveRaw("06")
 	//EncPreview("06")
 	useHilbert := true
-	EncBlockTest2("01", useHilbert)
-	EncBlockTest2("02", useHilbert)
-	EncBlockTest2("03", useHilbert)
-	EncBlockTest2("04", useHilbert)
-	EncBlockTest2("05", useHilbert)
-	EncBlockTest2("06", useHilbert)
+	debugOutput := true
+	EncBlockTest2("01", useHilbert, debugOutput)
+	EncBlockTest2("02", useHilbert, debugOutput)
+	EncBlockTest2("03", useHilbert, debugOutput)
+	EncBlockTest2("04", useHilbert, debugOutput)
+	EncBlockTest2("05", useHilbert, debugOutput)
+	EncBlockTest2("06", useHilbert, debugOutput)
 	//DebugDrawCurve(320, 240, "../data/enctest/hilbert.png")
 	os.Exit(0)
 
