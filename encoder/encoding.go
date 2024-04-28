@@ -35,11 +35,13 @@ type EncodeSuggestion struct {
 	MetaData  []int
 	PixelData []int
 	First     bool
-	Result    ImageBlock
+	Score     float64
+	Result    *ImageBlock
 }
 
 type FrameEncoder struct {
 	chain []EncodedBlock
+	pal   Palette
 }
 
 //region BLOCKS
@@ -104,13 +106,14 @@ func CompareBlocks(a *ImageBlock, b *ImageBlock, pal Palette) float64 {
 
 //region ENCODER
 
-func NewEncoder() *FrameEncoder {
+func NewEncoder(pal Palette) *FrameEncoder {
 	return &FrameEncoder{
 		chain: make([]EncodedBlock, 0),
+		pal:   pal,
 	}
 }
 
-func (encoder *FrameEncoder) AddSuggestion(suggestion EncodeSuggestion) {
+func (encoder *FrameEncoder) AddSuggestion(suggestion *EncodeSuggestion) {
 	if suggestion.First {
 		encoder.chain = append(encoder.chain, EncodedBlock{
 			BlockType: suggestion.Encoding,
@@ -124,13 +127,42 @@ func (encoder *FrameEncoder) AddSuggestion(suggestion EncodeSuggestion) {
 	}
 }
 
+func (encoder *FrameEncoder) Decode() []ImageBlock {
+	result := make([]ImageBlock, 0)
+	var block ImageBlock
+	for _, enc := range encoder.chain {
+		switch enc.BlockType {
+		case ENC_SOLID:
+			for i := range block {
+				block[i] = enc.MetaData[0]
+			}
+			result = append(result, block)
+		case ENC_PAL2, ENC_PAL4, ENC_PAL8:
+			for i := range block {
+				block[i] = enc.MetaData[enc.PixelData[0][i]]
+			}
+			result = append(result, block)
+		case ENC_RAW:
+			result = append(result, ImageBlock(enc.PixelData[0]))
+		}
+	}
+	return result
+}
+
+func (encoder *FrameEncoder) Encode(frame []ImageBlock) {
+	encoder.chain = make([]EncodedBlock, 0)
+	for _, block := range frame {
+		encoder.AddSuggestion(ChooseSolid(&block, encoder.pal))
+	}
+}
+
 //endregion
 
 //region CHOOSING
 
-func ChooseSolid(source *ImageBlock, pal Palette) (color int, score float64, result *ImageBlock) {
-	color = -1
-	score = math.MaxFloat64
+func ChooseSolid(source *ImageBlock, pal Palette) *EncodeSuggestion {
+	color := -1
+	score := math.MaxFloat64
 
 	for i, palcolor := range pal {
 		var scoreacc float64 = 0
@@ -142,11 +174,21 @@ func ChooseSolid(source *ImageBlock, pal Palette) (color int, score float64, res
 			score = scoreacc
 		}
 	}
-	result = &ImageBlock{}
-	for i, _ := range result {
-		result[i] = color
+	resultBlock := &ImageBlock{}
+	for i := range resultBlock {
+		resultBlock[i] = color
 	}
-	return
+
+	result := &EncodeSuggestion{
+		Encoding:  ENC_SOLID,
+		MetaData:  []int{color},
+		PixelData: nil,
+		First:     true,
+		Score:     score,
+		Result:    resultBlock,
+	}
+
+	return result
 }
 
 func chooseColor(source int, pal Palette, subpal []int) int {
@@ -181,11 +223,35 @@ func CalcSubpal(source *ImageBlock, pal Palette, colorNum int) []int {
 	return calc.GetSubPal(pal)
 }
 
-func ChooseSubColor(source *ImageBlock, pal Palette, colorNum int) (data []int, pixels *ImageBlock, score float64, result *ImageBlock) {
-	data = CalcSubpal(source, pal, colorNum)
-	pixels, result = ApplySubpal(source, pal, data)
-	score = CompareBlocks(source, result, pal)
-	return
+func encodingToColors(encoding byte) int {
+	switch encoding {
+	case ENC_PAL2, ENC_PAL2_CACHE:
+		return 2
+	case ENC_PAL4, ENC_PAL4_CACHE:
+		return 4
+	case ENC_PAL8, ENC_PAL8_CACHE:
+		return 8
+	default:
+		return 8
+	}
+}
+
+func ChooseSubColor(source *ImageBlock, pal Palette, encoding byte) *EncodeSuggestion {
+	colorNum := encodingToColors(encoding)
+	data := CalcSubpal(source, pal, colorNum)
+	pixels, resultBlock := ApplySubpal(source, pal, data)
+	score := CompareBlocks(source, resultBlock, pal)
+
+	result := &EncodeSuggestion{
+		Encoding:  encoding,
+		MetaData:  data,
+		PixelData: (*pixels)[:],
+		First:     true,
+		Score:     score,
+		Result:    resultBlock,
+	}
+
+	return result
 }
 
 //endregion
