@@ -170,20 +170,30 @@ func (encoder *FrameEncoder) DebugDecode() []int {
 	for _, enc := range encoder.chain {
 		var col int
 		switch enc.BlockType {
-		case ENC_REPEAT:
+		case ENC_SKIP, ENC_SKIP_LONG:
+			col = 0
+		case ENC_REPEAT, ENC_REPEAT_LONG:
 			col = 1
-		case ENC_SOLID:
+		case ENC_SOLID, ENC_SOLID_LONG:
 			col = 2
-		case ENC_PAL2:
+		case ENC_SOLID_SEP, ENC_SOLID_SEP_LONG:
 			col = 3
-		case ENC_PAL4:
+		case ENC_PAL2:
 			col = 4
-		case ENC_PAL8:
+		case ENC_PAL2_CACHE:
 			col = 5
-		case ENC_RAW:
+		case ENC_PAL4:
 			col = 6
+		case ENC_PAL4_CACHE:
+			col = 7
+		case ENC_PAL8:
+			col = 8
+		case ENC_PAL8_CACHE:
+			col = 9
+		case ENC_RAW, ENC_RAW_LONG:
+			col = 10
 		}
-		col = col | 0b1000
+		col += 11
 		result = append(result, col)
 	}
 	return result

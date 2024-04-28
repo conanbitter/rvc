@@ -112,21 +112,28 @@ func EncBlockTest2(filename string, useHilbert bool, debugOutput bool, useEncode
 }
 
 var BlockColors = [][]byte{
-	{128, 128, 128}, // SKIP   CONT.
-	{128, 0, 0},     // REPEAT CONT.
-	{0, 128, 0},     // SOLID  CONT.
-	{128, 128, 0},   // PAL2   CONT.
-	{128, 0, 128},   // PAL4   CONT.
-	{0, 128, 128},   // PAL8   CONT.
-	{0, 0, 128},     // RAW    CONT.
-	{0, 0, 0},
-	{255, 255, 255}, // SKIP   FIRST
-	{255, 0, 0},     // REPEAT FIRST
-	{0, 255, 0},     // SOLID  FIRST
-	{255, 255, 0},   // PAL2   FIRST
-	{255, 0, 255},   // PAL4   FIRST
-	{0, 255, 255},   // PAL8   FIRST
-	{0, 0, 255},     // RAW    FIRST
+	{128, 128, 128}, // SKIP       CONT.
+	{128, 0, 0},     // REPEAT     CONT.
+	{0, 128, 0},     // SOLID      CONT.
+	{50, 128, 50},   // SOLID SEP  CONT.
+	{128, 128, 0},   // PAL2       CONT.
+	{64, 128, 0},    // PAL2 CACHE CONT.
+	{128, 0, 128},   // PAL4       CONT.
+	{64, 0, 128},    // PAL4 CACHE CONT.
+	{0, 128, 128},   // PAL8       CONT.
+	{0, 64, 128},    // PAL8 CACHE CONT.
+	{0, 0, 128},     // RAW        CONT.
+	{0, 0, 0},       // SKIP       FIRST
+	{255, 0, 0},     // REPEAT     FIRST
+	{0, 255, 0},     // SOLID      FIRST
+	{100, 255, 100}, // SOLID SEP  FIRST
+	{255, 255, 0},   // PAL2       FIRST
+	{128, 255, 0},   // PAL2 CACHE FIRST
+	{255, 0, 255},   // PAL4       FIRST
+	{128, 0, 255},   // PAL4 CACHE FIRST
+	{0, 255, 255},   // PAL8       FIRST
+	{0, 128, 255},   // PAL8 CACHE FIRST
+	{0, 0, 255},     // RAW        FIRST
 }
 
 func DebugDecodeSave(data []int, width int, height int, filename string) {

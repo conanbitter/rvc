@@ -14,12 +14,12 @@ func main() {
 	//EncPreview("12")
 	useHilbert := true
 	debugOutput := true
-	/*EncBlockTest2("01", useHilbert, debugOutput)
-	EncBlockTest2("02", useHilbert, debugOutput)
-	EncBlockTest2("03", useHilbert, debugOutput)
-	EncBlockTest2("04", useHilbert, debugOutput)
-	EncBlockTest2("05", useHilbert, debugOutput)
-	EncBlockTest2("06", useHilbert, debugOutput)*/
+	EncBlockTest2("01", useHilbert, debugOutput, nil)
+	EncBlockTest2("02", useHilbert, debugOutput, nil)
+	EncBlockTest2("03", useHilbert, debugOutput, nil)
+	EncBlockTest2("04", useHilbert, debugOutput, nil)
+	EncBlockTest2("05", useHilbert, debugOutput, nil)
+	EncBlockTest2("06", useHilbert, debugOutput, nil)
 	enc := EncBlockTest2("10", useHilbert, debugOutput, nil)
 	EncBlockTest2("11", useHilbert, debugOutput, enc)
 	EncBlockTest2("12", useHilbert, debugOutput, enc)
