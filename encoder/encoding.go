@@ -285,7 +285,7 @@ func (encoder *FrameEncoder) Encode(frame []ImageBlock) {
 	encoder.palcahe[1].Reset()
 	encoder.palcahe[2].Reset()
 	var counts [10]int
-	treshold := float64(0.02)
+	treshold := float64(0.1)
 	newLastFrame := make([]ImageBlock, len(frame))
 	var last ImageBlock
 	for i, block := range frame {
@@ -505,6 +505,47 @@ func (encoder *FrameEncoder) Encode(frame []ImageBlock) {
 	//outimg, outw, outh := BlocksToImage(newLastFrame, 80, 60)
 	//ImageSave("../data/enctest/test_enc.png", outimg, outw, outh, encoder.pal)
 	fmt.Println(len(encoder.chain), len(frame))
+}
+
+func (encoder *FrameEncoder) GetFrameSize() int {
+	result := 0
+	for _, enc := range encoder.chain {
+		switch enc.BlockType {
+		case ENC_SKIP:
+			result += 1
+		case ENC_SKIP_LONG:
+			result += 2
+		case ENC_REPEAT:
+			result += 1
+		case ENC_REPEAT_LONG:
+			result += 2
+		case ENC_SOLID:
+			result += 2
+		case ENC_SOLID_LONG:
+			result += 3
+		case ENC_SOLID_SEP:
+			result += 1 + enc.Count
+		case ENC_SOLID_SEP_LONG:
+			result += 2 + enc.Count
+		case ENC_PAL2:
+			result += 1 + 2 + enc.Count*2
+		case ENC_PAL2_CACHE:
+			result += 1 + 1 + enc.Count*2
+		case ENC_PAL4:
+			result += 1 + 4 + enc.Count*4
+		case ENC_PAL4_CACHE:
+			result += 1 + 1 + enc.Count*4
+		case ENC_PAL8:
+			result += 1 + 8 + enc.Count*6
+		case ENC_PAL8_CACHE:
+			result += 1 + 1 + enc.Count*6
+		case ENC_RAW:
+			result += 1 + enc.Count*16
+		case ENC_RAW_LONG:
+			result += 2 + enc.Count*16
+		}
+	}
+	return result
 }
 
 //endregion

@@ -80,6 +80,8 @@ func EncBlockTest2(filename string, useHilbert bool, debugOutput bool, useEncode
 	}
 	lastFrame := encoder.lastFrame
 	encoder.Encode(blocks)
+	size := encoder.GetFrameSize()
+	fmt.Printf("Compression: %.f%% (%d/%d)\n", float64(size)/float64(imwidth*imheight)*100, size, imwidth*imheight)
 	blocksRes := encoder.Decode(lastFrame)
 
 	if useHilbert {
