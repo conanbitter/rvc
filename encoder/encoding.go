@@ -168,7 +168,15 @@ func (encoder *FrameEncoder) AddSuggestion(suggestion *EncodeSuggestion) {
 	} else {
 		lastElement := &encoder.chain[len(encoder.chain)-1]
 		lastElement.PixelData = append(lastElement.PixelData, suggestion.PixelData)
+		lastElement.Count++
 	}
+}
+
+func (encoder *FrameEncoder) GetLastSuggestion() *EncodedBlock {
+	if len(encoder.chain) == 0 {
+		return nil
+	}
+	return &encoder.chain[len(encoder.chain)-1]
 }
 
 func (encoder *FrameEncoder) Decode(lastframe []ImageBlock) []ImageBlock {
@@ -182,37 +190,55 @@ func (encoder *FrameEncoder) Decode(lastframe []ImageBlock) []ImageBlock {
 	for _, enc := range encoder.chain {
 		switch enc.BlockType {
 		case ENC_SKIP:
-			result = append(result, lastframe[index])
-			last = lastframe[index]
+			for i := 0; i < enc.Count; i++ {
+				result = append(result, lastframe[index])
+				last = lastframe[index]
+				index++
+			}
 		case ENC_REPEAT:
-			result = append(result, last)
+			for i := 0; i < enc.Count; i++ {
+				result = append(result, last)
+				index++
+			}
 		case ENC_SOLID:
 			for i := range block {
 				block[i] = enc.MetaData[0]
 			}
-			result = append(result, block)
+			for i := 0; i < enc.Count; i++ {
+				result = append(result, block)
+				index++
+			}
 			last = block
 		case ENC_PAL2, ENC_PAL4, ENC_PAL8:
 			_, pch := encodingToColors(enc.BlockType)
 			encoder.palcahe[pch].AddPalette(enc.MetaData)
-			for i := range block {
-				block[i] = enc.MetaData[enc.PixelData[0][i]]
+			for _, data := range enc.PixelData {
+				for i := range block {
+					block[i] = enc.MetaData[data[i]]
+				}
+				result = append(result, block)
+				index++
 			}
-			result = append(result, block)
 			last = block
 		case ENC_PAL2_CACHE, ENC_PAL4_CACHE, ENC_PAL8_CACHE:
 			_, pch := encodingToColors(enc.BlockType)
 			palcache := encoder.palcahe[pch].Pals[enc.MetaData[0]]
-			for i := range block {
-				block[i] = palcache[enc.PixelData[0][i]]
+			for _, data := range enc.PixelData {
+				for i := range block {
+					block[i] = palcache[data[i]]
+				}
+				result = append(result, block)
+				index++
 			}
-			result = append(result, block)
 			last = block
 		case ENC_RAW:
-			result = append(result, ImageBlock(enc.PixelData[0]))
-			last = block
+			for _, data := range enc.PixelData {
+				result = append(result, ImageBlock(data))
+				index++
+			}
+			last = ImageBlock(enc.PixelData[len(enc.PixelData)-1])
 		}
-		index += enc.Count
+		//index += enc.Count
 	}
 	return result
 }
@@ -245,8 +271,10 @@ func (encoder *FrameEncoder) DebugDecode() []int {
 		case ENC_RAW, ENC_RAW_LONG:
 			col = 10
 		}
-		col += 11
-		result = append(result, col)
+		result = append(result, col+11)
+		for i := 1; i < enc.Count; i++ {
+			result = append(result, col)
+		}
 	}
 	return result
 }
@@ -263,8 +291,107 @@ func (encoder *FrameEncoder) Encode(frame []ImageBlock) {
 	for i, block := range frame {
 		var suggestion *EncodeSuggestion
 
+		if encoder.GetLastSuggestion() != nil && encoder.GetLastSuggestion().BlockType == ENC_SKIP {
+			suggestion = ChooseSkip(&block, &encoder.lastFrame[i], encoder.pal, true)
+			if suggestion.Score < treshold {
+				encoder.AddSuggestion(suggestion)
+				last = *suggestion.Result
+				newLastFrame[i] = *suggestion.Result
+				counts[0]++
+				continue
+			}
+		}
+
+		if encoder.GetLastSuggestion() != nil && encoder.GetLastSuggestion().BlockType == ENC_REPEAT {
+			suggestion = ChooseRepeat(&block, &encoder.lastFrame[i], encoder.pal, true)
+			if suggestion.Score < treshold {
+				encoder.AddSuggestion(suggestion)
+				last = *suggestion.Result
+				newLastFrame[i] = *suggestion.Result
+				counts[1]++
+				continue
+			}
+		}
+
+		if encoder.GetLastSuggestion() != nil && encoder.GetLastSuggestion().BlockType == ENC_SOLID {
+			suggestion = ChooseSolidCont(&block, encoder.pal, encoder.GetLastSuggestion())
+			if suggestion.Score < treshold {
+				encoder.AddSuggestion(suggestion)
+				last = *suggestion.Result
+				newLastFrame[i] = *suggestion.Result
+				counts[2]++
+				continue
+			}
+		}
+
+		if encoder.GetLastSuggestion() != nil && encoder.GetLastSuggestion().BlockType == ENC_PAL2_CACHE {
+			suggestion = ChooseSubColorCont(&block, encoder.pal, encoder.GetLastSuggestion(), encoder.palcahe[:])
+			if suggestion.Score < treshold {
+				encoder.AddSuggestion(suggestion)
+				last = *suggestion.Result
+				newLastFrame[i] = *suggestion.Result
+				counts[3]++
+				continue
+			}
+		}
+
+		if encoder.GetLastSuggestion() != nil && encoder.GetLastSuggestion().BlockType == ENC_PAL2 {
+			suggestion = ChooseSubColorCont(&block, encoder.pal, encoder.GetLastSuggestion(), encoder.palcahe[:])
+			if suggestion.Score < treshold {
+				encoder.AddSuggestion(suggestion)
+				last = *suggestion.Result
+				newLastFrame[i] = *suggestion.Result
+				counts[4]++
+				continue
+			}
+		}
+
+		if encoder.GetLastSuggestion() != nil && encoder.GetLastSuggestion().BlockType == ENC_PAL4_CACHE {
+			suggestion = ChooseSubColorCont(&block, encoder.pal, encoder.GetLastSuggestion(), encoder.palcahe[:])
+			if suggestion.Score < treshold {
+				encoder.AddSuggestion(suggestion)
+				last = *suggestion.Result
+				newLastFrame[i] = *suggestion.Result
+				counts[4]++
+				continue
+			}
+		}
+
+		if encoder.GetLastSuggestion() != nil && encoder.GetLastSuggestion().BlockType == ENC_PAL4 {
+			suggestion = ChooseSubColorCont(&block, encoder.pal, encoder.GetLastSuggestion(), encoder.palcahe[:])
+			if suggestion.Score < treshold {
+				encoder.AddSuggestion(suggestion)
+				last = *suggestion.Result
+				newLastFrame[i] = *suggestion.Result
+				counts[5]++
+				continue
+			}
+		}
+
+		if encoder.GetLastSuggestion() != nil && encoder.GetLastSuggestion().BlockType == ENC_PAL8_CACHE {
+			suggestion = ChooseSubColorCont(&block, encoder.pal, encoder.GetLastSuggestion(), encoder.palcahe[:])
+			if suggestion.Score < treshold {
+				encoder.AddSuggestion(suggestion)
+				last = *suggestion.Result
+				newLastFrame[i] = *suggestion.Result
+				counts[7]++
+				continue
+			}
+		}
+
+		if encoder.GetLastSuggestion() != nil && encoder.GetLastSuggestion().BlockType == ENC_PAL8 {
+			suggestion = ChooseSubColorCont(&block, encoder.pal, encoder.GetLastSuggestion(), encoder.palcahe[:])
+			if suggestion.Score < treshold {
+				encoder.AddSuggestion(suggestion)
+				last = *suggestion.Result
+				newLastFrame[i] = *suggestion.Result
+				counts[8]++
+				continue
+			}
+		}
+
 		if encoder.lastFrame != nil {
-			suggestion = ChooseSkip(&block, &encoder.lastFrame[i], encoder.pal)
+			suggestion = ChooseSkip(&block, &encoder.lastFrame[i], encoder.pal, false)
 			if suggestion.Score < treshold {
 				encoder.AddSuggestion(suggestion)
 				last = *suggestion.Result
@@ -275,7 +402,7 @@ func (encoder *FrameEncoder) Encode(frame []ImageBlock) {
 		}
 
 		if i > 0 {
-			suggestion = ChooseRepeat(&block, &last, encoder.pal)
+			suggestion = ChooseRepeat(&block, &last, encoder.pal, false)
 			if suggestion.Score < treshold {
 				encoder.AddSuggestion(suggestion)
 				last = *suggestion.Result
@@ -357,7 +484,7 @@ func (encoder *FrameEncoder) Encode(frame []ImageBlock) {
 			continue
 		}
 
-		suggestion = ChooseRaw(&block)
+		suggestion = ChooseRaw(&block, encoder.GetLastSuggestion() != nil && encoder.GetLastSuggestion().BlockType == ENC_RAW)
 		encoder.AddSuggestion(suggestion)
 		last = *suggestion.Result
 		newLastFrame[i] = *suggestion.Result
@@ -377,25 +504,26 @@ func (encoder *FrameEncoder) Encode(frame []ImageBlock) {
 	encoder.lastFrame = newLastFrame
 	//outimg, outw, outh := BlocksToImage(newLastFrame, 80, 60)
 	//ImageSave("../data/enctest/test_enc.png", outimg, outw, outh, encoder.pal)
+	fmt.Println(len(encoder.chain), len(frame))
 }
 
 //endregion
 
 //region CHOOSING
 
-func ChooseSkip(source *ImageBlock, prev *ImageBlock, pal Palette) *EncodeSuggestion {
+func ChooseSkip(source *ImageBlock, prev *ImageBlock, pal Palette, cont bool) *EncodeSuggestion {
 	result := *prev
 	return &EncodeSuggestion{
 		Encoding:  ENC_SKIP,
 		MetaData:  nil,
 		PixelData: nil,
-		First:     true,
+		First:     !cont,
 		Score:     CompareBlocks(source, prev, pal),
 		Result:    &result,
 	}
 }
 
-func ChooseRaw(source *ImageBlock) *EncodeSuggestion {
+func ChooseRaw(source *ImageBlock, cont bool) *EncodeSuggestion {
 	result := make([]int, 16)
 	copy(result, (*source)[:])
 	return &EncodeSuggestion{
@@ -408,12 +536,12 @@ func ChooseRaw(source *ImageBlock) *EncodeSuggestion {
 	}
 }
 
-func ChooseRepeat(source *ImageBlock, last *ImageBlock, pal Palette) *EncodeSuggestion {
+func ChooseRepeat(source *ImageBlock, last *ImageBlock, pal Palette, cont bool) *EncodeSuggestion {
 	return &EncodeSuggestion{
 		Encoding:  ENC_REPEAT,
 		MetaData:  nil,
 		PixelData: nil,
-		First:     true,
+		First:     !cont,
 		Score:     CompareBlocks(source, last, pal),
 		Result:    last,
 	}
@@ -443,6 +571,31 @@ func ChooseSolid(source *ImageBlock, pal Palette) *EncodeSuggestion {
 		MetaData:  []int{color},
 		PixelData: nil,
 		First:     true,
+		Score:     score,
+		Result:    resultBlock,
+	}
+
+	return result
+}
+
+func ChooseSolidCont(source *ImageBlock, pal Palette, last *EncodedBlock) *EncodeSuggestion {
+	color := pal[last.MetaData[0]]
+	var score float64 = 0
+
+	for _, pixel := range source {
+		score += color.ToFloatColor().Difference(pal[pixel].ToFloatColor())
+	}
+
+	resultBlock := &ImageBlock{}
+	for i := range resultBlock {
+		resultBlock[i] = last.MetaData[0]
+	}
+
+	result := &EncodeSuggestion{
+		Encoding:  ENC_SOLID,
+		MetaData:  nil,
+		PixelData: nil,
+		First:     false,
 		Score:     score,
 		Result:    resultBlock,
 	}
@@ -506,6 +659,33 @@ func ChooseSubColor(source *ImageBlock, pal Palette, encoding byte) *EncodeSugge
 		MetaData:  data,
 		PixelData: (*pixels)[:],
 		First:     true,
+		Score:     score,
+		Result:    resultBlock,
+	}
+
+	return result
+}
+
+func ChooseSubColorCont(source *ImageBlock, pal Palette, last *EncodedBlock, palcache []*PaletteCache) *EncodeSuggestion {
+	var subpal []int
+	if last.BlockType == ENC_PAL2 ||
+		last.BlockType == ENC_PAL4 ||
+		last.BlockType == ENC_PAL8 {
+		subpal = last.MetaData
+	} else if last.BlockType == ENC_PAL2_CACHE ||
+		last.BlockType == ENC_PAL4_CACHE ||
+		last.BlockType == ENC_PAL8_CACHE {
+		_, cacheind := encodingToColors(last.BlockType)
+		subpal = palcache[cacheind].Pals[last.MetaData[0]]
+	}
+	pixels, resultBlock := ApplySubpal(source, pal, subpal)
+	score := CompareBlocks(source, resultBlock, pal)
+
+	result := &EncodeSuggestion{
+		Encoding:  last.BlockType,
+		MetaData:  nil,
+		PixelData: (*pixels)[:],
+		First:     false,
 		Score:     score,
 		Result:    resultBlock,
 	}

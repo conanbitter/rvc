@@ -53,6 +53,7 @@ func EncBlockTest(filename string) {
 }
 
 func EncBlockTest2(filename string, useHilbert bool, debugOutput bool, useEncoder *FrameEncoder) *FrameEncoder {
+	fmt.Println(filename)
 	fmt.Println("Loading palette")
 	pal := PaletteLoad("../data/enctest/common.pal")
 	fmt.Println("Loading image")
