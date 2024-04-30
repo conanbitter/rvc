@@ -672,7 +672,7 @@ func ChoosePal2Cache(input *ImageBlock, prev *ImageBlock, index int, encoder *Fr
 }
 
 func ChoosePal2CacheCont(input *ImageBlock, prev *ImageBlock, index int, encoder *FrameEncoder) *EncodeSuggestion {
-	if encoder.GetLastSuggestion() == nil || encoder.GetLastSuggestion().BlockType != ENC_PAL2 || encoder.GetLastSuggestion().Count >= ShortSize {
+	if encoder.GetLastSuggestion() == nil || encoder.GetLastSuggestion().BlockType != ENC_PAL2_CACHE || encoder.GetLastSuggestion().Count >= ShortSize {
 		return nil
 	}
 	return SuggestSubColorCont(input, encoder)
@@ -697,7 +697,7 @@ func ChoosePal4Cache(input *ImageBlock, prev *ImageBlock, index int, encoder *Fr
 }
 
 func ChoosePal4CacheCont(input *ImageBlock, prev *ImageBlock, index int, encoder *FrameEncoder) *EncodeSuggestion {
-	if encoder.GetLastSuggestion() == nil || encoder.GetLastSuggestion().BlockType != ENC_PAL4 || encoder.GetLastSuggestion().Count >= ShortSize {
+	if encoder.GetLastSuggestion() == nil || encoder.GetLastSuggestion().BlockType != ENC_PAL4_CACHE || encoder.GetLastSuggestion().Count >= ShortSize {
 		return nil
 	}
 	return SuggestSubColorCont(input, encoder)
@@ -722,7 +722,7 @@ func ChoosePal8Cache(input *ImageBlock, prev *ImageBlock, index int, encoder *Fr
 }
 
 func ChoosePal8CacheCont(input *ImageBlock, prev *ImageBlock, index int, encoder *FrameEncoder) *EncodeSuggestion {
-	if encoder.GetLastSuggestion() == nil || encoder.GetLastSuggestion().BlockType != ENC_PAL8 || encoder.GetLastSuggestion().Count >= ShortSize {
+	if encoder.GetLastSuggestion() == nil || encoder.GetLastSuggestion().BlockType != ENC_PAL8_CACHE || encoder.GetLastSuggestion().Count >= ShortSize {
 		return nil
 	}
 	return SuggestSubColorCont(input, encoder)
