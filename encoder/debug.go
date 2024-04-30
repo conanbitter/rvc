@@ -113,6 +113,47 @@ func EncBlockTest2(filename string, useHilbert bool, debugOutput bool, useEncode
 	return encoder
 }
 
+func EncBlockTest3(filename string, useHilbert bool, useEncoder *FrameEncoder) *FrameEncoder {
+	fmt.Println(filename)
+	fmt.Println("Loading palette")
+	pal := PaletteLoad("../data/enctest/common.pal")
+	fmt.Println("Loading image")
+	img, imwidth, imheight := EncLoadRaw(filename)
+	fmt.Println("Unwrapping")
+	blocks, bw, bh := ImageToBlocks(img, imwidth, imheight)
+	var curve []int
+	if useHilbert {
+		fmt.Println("Applying Hilbert curve")
+		curve = GetHilbertCurve(bw, bh)
+		hblocks := make([]ImageBlock, len(blocks))
+		for i, n := range curve {
+			hblocks[i] = blocks[n]
+		}
+		blocks = hblocks
+	}
+
+	fmt.Println("Encoding")
+	var encoder *FrameEncoder
+	if useEncoder != nil {
+		encoder = useEncoder
+	} else {
+		encoder = NewEncoder(pal)
+	}
+	encoder.Encode(blocks)
+
+	packdata := encoder.Pack()
+	size := encoder.GetFrameSize()
+	fmt.Printf("Frame size: %d\n", imwidth*imheight)
+	fmt.Printf("Estimated size: %d\n", size)
+	fmt.Printf("Real size: %d\n", len(packdata))
+	//fmt.Printf("Compression: %.f%% (%d/%d)\n", float64(size)/float64(imwidth*imheight)*100, size, imwidth*imheight)
+
+	file, _ := os.Create("../data/enctest/" + filename + ".pak")
+	defer file.Close()
+	file.Write(packdata)
+	return encoder
+}
+
 var BlockColors = [][]byte{
 	{128, 128, 128}, // SKIP       CONT.
 	{128, 0, 0},     // REPEAT     CONT.

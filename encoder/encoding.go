@@ -358,19 +358,35 @@ func (encoder *FrameEncoder) GetFrameSize() int {
 	for _, enc := range encoder.chain {
 		switch enc.BlockType {
 		case ENC_SKIP:
-			result += 1
+			if enc.Count <= ShortSize {
+				result += 1
+			} else {
+				result += 2
+			}
 		case ENC_SKIP_LONG:
 			result += 2
 		case ENC_REPEAT:
-			result += 1
+			if enc.Count <= ShortSize {
+				result += 1
+			} else {
+				result += 2
+			}
 		case ENC_REPEAT_LONG:
 			result += 2
 		case ENC_SOLID:
-			result += 2
+			if enc.Count <= ShortSize {
+				result += 2
+			} else {
+				result += 3
+			}
 		case ENC_SOLID_LONG:
 			result += 3
 		case ENC_SOLID_SEP:
-			result += 1 + enc.Count
+			if enc.Count <= ShortSize {
+				result += 1 + enc.Count
+			} else {
+				result += 2 + enc.Count
+			}
 		case ENC_SOLID_SEP_LONG:
 			result += 2 + enc.Count
 		case ENC_PAL2:
@@ -386,9 +402,91 @@ func (encoder *FrameEncoder) GetFrameSize() int {
 		case ENC_PAL8_CACHE:
 			result += 1 + 1 + enc.Count*6
 		case ENC_RAW:
-			result += 1 + enc.Count*16
+			if enc.Count <= ShortSize {
+				result += 1 + enc.Count*16
+			} else {
+				result += 2 + enc.Count*16
+			}
 		case ENC_RAW_LONG:
 			result += 2 + enc.Count*16
+		}
+	}
+	return result
+}
+
+func (encoder *FrameEncoder) Pack() []byte {
+	result := make([]byte, 0, encoder.GetFrameSize())
+	for _, enc := range encoder.chain {
+		//encoding := enc.BlockType
+		switch enc.BlockType {
+		case ENC_SKIP:
+			if enc.Count <= ShortSize {
+				result = append(result, ENC_SKIP&getShortLength(enc.Count))
+			} else {
+				result = append(result, ENC_SKIP_LONG&getLongLengthHi(enc.Count))
+				result = append(result, getLongLengthLo(enc.Count))
+			}
+		case ENC_REPEAT:
+			if enc.Count <= ShortSize {
+				result = append(result, ENC_REPEAT&getShortLength(enc.Count))
+			} else {
+				result = append(result, ENC_REPEAT_LONG&getLongLengthHi(enc.Count))
+				result = append(result, getLongLengthLo(enc.Count))
+			}
+		case ENC_SOLID:
+			if enc.Count <= ShortSize {
+				result = append(result, ENC_SOLID&getShortLength(enc.Count))
+			} else {
+				result = append(result, ENC_SOLID_LONG&getLongLengthHi(enc.Count))
+				result = append(result, getLongLengthLo(enc.Count))
+			}
+			result = append(result, byte(enc.MetaData[0]))
+		case ENC_PAL2:
+			result = append(result, ENC_PAL2&getShortLength(enc.Count))
+			result = writeInts(result, enc.MetaData)
+			for _, pd := range enc.PixelData {
+				result = append(result, packBits2(pd)...)
+			}
+		case ENC_PAL2_CACHE:
+			result = append(result, ENC_PAL2_CACHE&getShortLength(enc.Count))
+			result = append(result, byte(enc.MetaData[0]))
+			for _, pd := range enc.PixelData {
+				result = append(result, packBits2(pd)...)
+			}
+		case ENC_PAL4:
+			result = append(result, ENC_PAL4&getShortLength(enc.Count))
+			result = writeInts(result, enc.MetaData)
+			for _, pd := range enc.PixelData {
+				result = append(result, packBits4(pd)...)
+			}
+		case ENC_PAL4_CACHE:
+			result = append(result, ENC_PAL4_CACHE&getShortLength(enc.Count))
+			result = append(result, byte(enc.MetaData[0]))
+			for _, pd := range enc.PixelData {
+				result = append(result, packBits4(pd)...)
+			}
+		case ENC_PAL8:
+			result = append(result, ENC_PAL8&getShortLength(enc.Count))
+			result = writeInts(result, enc.MetaData)
+			for _, pd := range enc.PixelData {
+				result = append(result, packBits8(pd)...)
+			}
+		case ENC_PAL8_CACHE:
+			result = append(result, ENC_PAL8_CACHE&getShortLength(enc.Count))
+			result = append(result, byte(enc.MetaData[0]))
+			for _, pd := range enc.PixelData {
+				result = append(result, packBits8(pd)...)
+			}
+		case ENC_RAW:
+			if enc.Count <= ShortSize {
+				result = append(result, ENC_RAW&getShortLength(enc.Count))
+			} else {
+				result = append(result, ENC_RAW_LONG&getLongLengthHi(enc.Count))
+				result = append(result, getLongLengthLo(enc.Count))
+			}
+			for _, pd := range enc.PixelData {
+				result = writeInts(result, pd)
+			}
 		}
 	}
 	return result
@@ -730,6 +828,107 @@ func ChoosePal8CacheCont(input *ImageBlock, prev *ImageBlock, index int, encoder
 
 func ChooseRaw(input *ImageBlock, prev *ImageBlock, index int, encoder *FrameEncoder) *EncodeSuggestion {
 	return SuggestRaw(input, encoder.GetLastSuggestion() != nil && encoder.GetLastSuggestion().BlockType == ENC_RAW && encoder.GetLastSuggestion().Count < LongSize)
+}
+
+//endregion
+
+//region BINARY
+
+func packBits2(data []int) []byte {
+	result := make([]byte, 2)
+
+	result[0] |= byte(data[0]&0b1) << 7
+	result[0] |= byte(data[1]&0b1) << 6
+	result[0] |= byte(data[2]&0b1) << 5
+	result[0] |= byte(data[3]&0b1) << 4
+	result[0] |= byte(data[4]&0b1) << 3
+	result[0] |= byte(data[5]&0b1) << 2
+	result[0] |= byte(data[6]&0b1) << 1
+	result[0] |= byte(data[7] & 0b1)
+	result[1] |= byte(data[8]&0b1) << 7
+	result[1] |= byte(data[9]&0b1) << 6
+	result[1] |= byte(data[10]&0b1) << 5
+	result[1] |= byte(data[11]&0b1) << 4
+	result[1] |= byte(data[12]&0b1) << 3
+	result[1] |= byte(data[13]&0b1) << 2
+	result[1] |= byte(data[14]&0b1) << 1
+	result[1] |= byte(data[15] & 0b1)
+
+	return result
+}
+
+func packBits4(data []int) []byte {
+	result := make([]byte, 4)
+
+	result[0] |= byte(data[0]&0b11) << 6
+	result[0] |= byte(data[1]&0b11) << 4
+	result[0] |= byte(data[2]&0b11) << 2
+	result[0] |= byte(data[3] & 0b11)
+	result[1] |= byte(data[4]&0b11) << 6
+	result[1] |= byte(data[5]&0b11) << 4
+	result[1] |= byte(data[6]&0b11) << 2
+	result[1] |= byte(data[7] & 0b11)
+	result[2] |= byte(data[8]&0b11) << 6
+	result[2] |= byte(data[9]&0b11) << 4
+	result[2] |= byte(data[10]&0b11) << 2
+	result[2] |= byte(data[11] & 0b11)
+	result[3] |= byte(data[12]&0b11) << 6
+	result[3] |= byte(data[13]&0b11) << 4
+	result[3] |= byte(data[14]&0b11) << 2
+	result[3] |= byte(data[15] & 0b11)
+
+	return result
+}
+
+func packBits8(data []int) []byte {
+	result := make([]byte, 6)
+
+	result[0] |= byte(data[0]&0b111) << 5
+	result[0] |= byte(data[1]&0b111) << 2
+	result[0] |= byte(data[2]&0b111) >> 1
+
+	result[1] |= byte(data[2]&0b1) << 7
+	result[1] |= byte(data[3]&0b111) << 4
+	result[1] |= byte(data[4]&0b111) << 1
+	result[1] |= byte(data[5]&0b111) >> 2
+
+	result[2] |= byte(data[5]&0b11) << 6
+	result[2] |= byte(data[6]&0b111) << 3
+	result[2] |= byte(data[7] & 0b111)
+
+	result[3] |= byte(data[8]&0b111) << 5
+	result[3] |= byte(data[9]&0b111) << 2
+	result[3] |= byte(data[10]&0b111) >> 1
+
+	result[4] |= byte(data[10]&0b1) << 7
+	result[4] |= byte(data[11]&0b111) << 4
+	result[4] |= byte(data[12]&0b111) << 1
+	result[4] |= byte(data[13]&0b111) >> 2
+
+	result[5] |= byte(data[13]&0b11) << 6
+	result[5] |= byte(data[14]&0b111) << 3
+	result[5] |= byte(data[15] & 0b111)
+
+	return result
+}
+
+func getShortLength(length int) byte {
+	return byte((length - 1) & 0xF)
+}
+
+func getLongLengthHi(length int) byte {
+	return byte(((length - 1) >> 8) & 0xF)
+}
+
+func getLongLengthLo(length int) byte {
+	return byte((length - 1) & 0xFF)
+}
+
+func writeInts(data []byte, subpal []int) []byte {
+	for _, col := range subpal {
+		data = append(data, byte(col))
+	}
+	return data
 }
 
 //endregion

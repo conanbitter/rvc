@@ -15,15 +15,24 @@ func main() {
 	useHilbert := true
 	debugOutput := true
 	EncBlockTest2("01", useHilbert, debugOutput, nil)
-	EncBlockTest2("02", useHilbert, debugOutput, nil)
+	/*EncBlockTest2("02", useHilbert, debugOutput, nil)
 	EncBlockTest2("03", useHilbert, debugOutput, nil)
 	EncBlockTest2("04", useHilbert, debugOutput, nil)
 	EncBlockTest2("05", useHilbert, debugOutput, nil)
 	EncBlockTest2("06", useHilbert, debugOutput, nil)
 	enc := EncBlockTest2("10", useHilbert, debugOutput, nil)
 	EncBlockTest2("11", useHilbert, debugOutput, enc)
-	EncBlockTest2("12", useHilbert, debugOutput, enc)
+	EncBlockTest2("12", useHilbert, debugOutput, enc)*/
 	//DebugDrawCurve(320, 240, "../data/enctest/hilbert.png")
+	EncBlockTest3("01", useHilbert, nil)
+	EncBlockTest3("02", useHilbert, nil)
+	EncBlockTest3("03", useHilbert, nil)
+	EncBlockTest3("04", useHilbert, nil)
+	EncBlockTest3("05", useHilbert, nil)
+	EncBlockTest3("06", useHilbert, nil)
+	enc := EncBlockTest3("10", useHilbert, nil)
+	EncBlockTest3("11", useHilbert, enc)
+	EncBlockTest3("12", useHilbert, enc)
 	os.Exit(0)
 
 	if len(os.Args) <= 1 {
