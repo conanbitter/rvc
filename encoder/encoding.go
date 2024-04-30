@@ -336,16 +336,16 @@ func (encoder *FrameEncoder) Encode(frame []ImageBlock) {
 			encoder.palcache[2].AddPalette(suggestion.MetaData)
 		}
 	}
-	fmt.Printf("  skip:   %d\n", counts[ENC_SKIP])
-	fmt.Printf("  repeat: %d\n", counts[ENC_REPEAT])
-	fmt.Printf("  solid:  %d\n", counts[ENC_SOLID])
-	fmt.Printf("  pal2:   %d\n", counts[ENC_PAL2])
-	fmt.Printf("  pal2c:  %d\n", counts[ENC_PAL2_CACHE])
-	fmt.Printf("  pal4:   %d\n", counts[ENC_PAL4])
-	fmt.Printf("  pal4c:  %d\n", counts[ENC_PAL4_CACHE])
-	fmt.Printf("  pal8:   %d\n", counts[ENC_PAL8])
-	fmt.Printf("  pal8c:  %d\n", counts[ENC_PAL8_CACHE])
-	fmt.Printf("  raw:    %d\n", counts[ENC_RAW])
+	fmt.Printf("  skip:   %2.f %%   (%d)\n", float64(counts[ENC_SKIP])/float64(len(frame))*100, counts[ENC_SKIP])
+	fmt.Printf("  repeat: %2.f %%   (%d)\n", float64(counts[ENC_REPEAT])/float64(len(frame))*100, counts[ENC_REPEAT])
+	fmt.Printf("  solid:  %2.f %%   (%d)\n", float64(counts[ENC_SOLID])/float64(len(frame))*100, counts[ENC_SOLID])
+	fmt.Printf("  pal2:   %2.f %%   (%d)\n", float64(counts[ENC_PAL2])/float64(len(frame))*100, counts[ENC_PAL2])
+	fmt.Printf("  pal2c:  %2.f %%   (%d)\n", float64(counts[ENC_PAL2_CACHE])/float64(len(frame))*100, counts[ENC_PAL2_CACHE])
+	fmt.Printf("  pal4:   %2.f %%   (%d)\n", float64(counts[ENC_PAL4])/float64(len(frame))*100, counts[ENC_PAL4])
+	fmt.Printf("  pal4c:  %2.f %%   (%d)\n", float64(counts[ENC_PAL4_CACHE])/float64(len(frame))*100, counts[ENC_PAL4_CACHE])
+	fmt.Printf("  pal8:   %2.f %%   (%d)\n", float64(counts[ENC_PAL8])/float64(len(frame))*100, counts[ENC_PAL8])
+	fmt.Printf("  pal8c:  %2.f %%   (%d)\n", float64(counts[ENC_PAL8_CACHE])/float64(len(frame))*100, counts[ENC_PAL8_CACHE])
+	fmt.Printf("  raw:    %2.f %%   (%d)\n", float64(counts[ENC_RAW])/float64(len(frame))*100, counts[ENC_RAW])
 
 	encoder.lastFrame = newLastFrame
 	//outimg, outw, outh := BlocksToImage(newLastFrame, 80, 60)
