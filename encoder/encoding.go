@@ -55,7 +55,7 @@ type FrameEncoder struct {
 	palcache  [3]*PaletteCache
 }
 
-type Chooser func(input *ImageBlock, prev *ImageBlock, index int, encoder FrameEncoder) *EncodeSuggestion
+type Chooser func(input *ImageBlock, prev *ImageBlock, index int, encoder *FrameEncoder) *EncodeSuggestion
 
 //region BLOCKS
 
@@ -710,7 +710,7 @@ func SuggestSubColor(source *ImageBlock, encoder *FrameEncoder, encoding byte) *
 	return result
 }
 
-func ChooseSubColorCont(source *ImageBlock, encoder *FrameEncoder) *EncodeSuggestion {
+func SuggestSubColorCont(source *ImageBlock, encoder *FrameEncoder) *EncodeSuggestion {
 	var subpal []int
 	encoding := encoder.GetLastSuggestion().BlockType
 	if encoding == ENC_PAL2 || encoding == ENC_PAL4 || encoding == ENC_PAL8 {
@@ -734,7 +734,7 @@ func ChooseSubColorCont(source *ImageBlock, encoder *FrameEncoder) *EncodeSugges
 	return result
 }
 
-func ChooseSubColorCache(source *ImageBlock, encoder *FrameEncoder, encoding byte) *EncodeSuggestion {
+func SuggestSubColorCache(source *ImageBlock, encoder *FrameEncoder, encoding byte) *EncodeSuggestion {
 	minscore := math.MaxFloat64
 	bestIndex := 0
 	_, cacheInd := encodingToColors(encoding)
@@ -761,6 +761,132 @@ func ChooseSubColorCache(source *ImageBlock, encoder *FrameEncoder, encoding byt
 	}
 
 	return result
+}
+
+//endregion
+
+//region CHOOSERS
+
+func ChooseSkip(input *ImageBlock, prev *ImageBlock, index int, encoder *FrameEncoder) *EncodeSuggestion {
+	if encoder.lastFrame == nil {
+		return nil
+	}
+	return SuggestSkip(input, index, encoder, false)
+}
+
+func ChooseSkipCont(input *ImageBlock, prev *ImageBlock, index int, encoder *FrameEncoder) *EncodeSuggestion {
+	if encoder.GetLastSuggestion() == nil || encoder.GetLastSuggestion().BlockType != ENC_SKIP {
+		return nil
+	}
+	return SuggestSkip(input, index, encoder, true)
+}
+
+func ChooseRepeat(input *ImageBlock, prev *ImageBlock, index int, encoder *FrameEncoder) *EncodeSuggestion {
+	if index == 0 {
+		return nil
+	}
+	return SuggestRepeat(input, prev, encoder, false)
+}
+
+func ChooseRepeatCont(input *ImageBlock, prev *ImageBlock, index int, encoder *FrameEncoder) *EncodeSuggestion {
+	if encoder.GetLastSuggestion() == nil || encoder.GetLastSuggestion().BlockType != ENC_REPEAT {
+		return nil
+	}
+	return SuggestRepeat(input, prev, encoder, true)
+}
+
+func ChooseSolid(input *ImageBlock, prev *ImageBlock, index int, encoder *FrameEncoder) *EncodeSuggestion {
+	return SuggestSolid(input, encoder)
+}
+
+func ChooseSolidCont(input *ImageBlock, prev *ImageBlock, index int, encoder *FrameEncoder) *EncodeSuggestion {
+	if encoder.GetLastSuggestion() == nil || encoder.GetLastSuggestion().BlockType != ENC_SOLID {
+		return nil
+	}
+	return SuggestSolidCont(input, encoder)
+}
+
+func ChoosePal2(input *ImageBlock, prev *ImageBlock, index int, encoder *FrameEncoder) *EncodeSuggestion {
+	return SuggestSubColor(input, encoder, ENC_PAL2)
+}
+
+func ChoosePal2Cont(input *ImageBlock, prev *ImageBlock, index int, encoder *FrameEncoder) *EncodeSuggestion {
+	if encoder.GetLastSuggestion() == nil || encoder.GetLastSuggestion().BlockType != ENC_PAL2 {
+		return nil
+	}
+	return SuggestSubColorCont(input, encoder)
+}
+
+func ChoosePal2Cache(input *ImageBlock, prev *ImageBlock, index int, encoder *FrameEncoder) *EncodeSuggestion {
+	if encoder.palcache[0].Count == 0 {
+		return nil
+	}
+	return SuggestSubColorCache(input, encoder, ENC_PAL2_CACHE)
+}
+
+func ChoosePal2CacheCont(input *ImageBlock, prev *ImageBlock, index int, encoder *FrameEncoder) *EncodeSuggestion {
+	if encoder.GetLastSuggestion() == nil || encoder.GetLastSuggestion().BlockType != ENC_PAL2 {
+		return nil
+	}
+	return SuggestSubColorCont(input, encoder)
+}
+
+func ChoosePal4(input *ImageBlock, prev *ImageBlock, index int, encoder *FrameEncoder) *EncodeSuggestion {
+	return SuggestSubColor(input, encoder, ENC_PAL4)
+}
+
+func ChoosePal4Cont(input *ImageBlock, prev *ImageBlock, index int, encoder *FrameEncoder) *EncodeSuggestion {
+	if encoder.GetLastSuggestion() == nil || encoder.GetLastSuggestion().BlockType != ENC_PAL4 {
+		return nil
+	}
+	return SuggestSubColorCont(input, encoder)
+}
+
+func ChoosePal4Cache(input *ImageBlock, prev *ImageBlock, index int, encoder *FrameEncoder) *EncodeSuggestion {
+	if encoder.palcache[1].Count == 0 {
+		return nil
+	}
+	return SuggestSubColorCache(input, encoder, ENC_PAL4_CACHE)
+}
+
+func ChoosePal4CacheCont(input *ImageBlock, prev *ImageBlock, index int, encoder *FrameEncoder) *EncodeSuggestion {
+	if encoder.GetLastSuggestion() == nil || encoder.GetLastSuggestion().BlockType != ENC_PAL4 {
+		return nil
+	}
+	return SuggestSubColorCont(input, encoder)
+}
+
+func ChoosePal8(input *ImageBlock, prev *ImageBlock, index int, encoder *FrameEncoder) *EncodeSuggestion {
+	return SuggestSubColor(input, encoder, ENC_PAL8)
+}
+
+func ChoosePal8Cont(input *ImageBlock, prev *ImageBlock, index int, encoder *FrameEncoder) *EncodeSuggestion {
+	if encoder.GetLastSuggestion() == nil || encoder.GetLastSuggestion().BlockType != ENC_PAL8 {
+		return nil
+	}
+	return SuggestSubColorCont(input, encoder)
+}
+
+func ChoosePal8Cache(input *ImageBlock, prev *ImageBlock, index int, encoder *FrameEncoder) *EncodeSuggestion {
+	if encoder.palcache[2].Count == 0 {
+		return nil
+	}
+	return SuggestSubColorCache(input, encoder, ENC_PAL8_CACHE)
+}
+
+func ChoosePal8CacheCont(input *ImageBlock, prev *ImageBlock, index int, encoder *FrameEncoder) *EncodeSuggestion {
+	if encoder.GetLastSuggestion() == nil || encoder.GetLastSuggestion().BlockType != ENC_PAL8 {
+		return nil
+	}
+	return SuggestSubColorCont(input, encoder)
+}
+
+func ChooseRaw(input *ImageBlock, prev *ImageBlock, index int, encoder *FrameEncoder) *EncodeSuggestion {
+	return SuggestRaw(input, false)
+}
+
+func ChooseRawCont(input *ImageBlock, prev *ImageBlock, index int, encoder *FrameEncoder) *EncodeSuggestion {
+	return SuggestRaw(input, encoder.GetLastSuggestion() != nil && encoder.GetLastSuggestion().BlockType == ENC_RAW)
 }
 
 //endregion
