@@ -8,7 +8,7 @@ import (
 	"os"
 )
 
-func EncSaveRaw(filename string) {
+/*func EncSaveRaw(filename string) {
 	pal := PaletteLoad("../data/enctest/common.pal")
 	img, imwidth, imheight, _ := ImageLoad("../data/enctest/" + filename + ".png")
 	dith := DitheringPattern4(img, pal, imwidth, imheight)
@@ -19,7 +19,7 @@ func EncSaveRaw(filename string) {
 	for _, item := range dith {
 		write(file, byte(item))
 	}
-}
+}*/
 
 func EncLoadRaw(filename string) ([]int, int, int) {
 	file, _ := os.Open("../data/enctest/" + filename + ".raw")

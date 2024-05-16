@@ -141,7 +141,7 @@ func main() {
 	}
 }
 
-func RawEncode(filename string, palette Palette, files []string, frameRate float32, dithering ImageDithering) {
+func RawEncode(filename string, palette Palette, files []string, frameRate float32, dithering DitheringMethod) {
 	if len(files) == 0 {
 		return
 	}
@@ -156,6 +156,8 @@ func RawEncode(filename string, palette Palette, files []string, frameRate float
 		panic(err)
 	}
 
+	dithering.Init(palette, width, height)
+
 	rvf := NewRVFfile(filename, palette, width, height, len(files), frameRate)
 	defer rvf.Close()
 
@@ -169,7 +171,7 @@ func RawEncode(filename string, palette Palette, files []string, frameRate float
 		if fwidth != width || fheight != height {
 			panic(fmt.Errorf("frame size incorrect (%dx%d  must be %dx%d)", fwidth, fheight, width, height))
 		}
-		imageIndexData := dithering(imageColorData, palette, width, height)
+		imageIndexData := dithering.Process(imageColorData, palette)
 		rvf.WriteRaw(imageIndexData)
 		bar.Set(i + 1)
 	}

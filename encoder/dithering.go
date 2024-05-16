@@ -6,32 +6,27 @@ import (
 	"sync"
 )
 
-var ditherMap = [8][8]int{
-	{0, 32, 8, 40, 2, 34, 10, 42},
-	{48, 16, 56, 24, 50, 18, 58, 26},
-	{12, 44, 4, 36, 14, 46, 6, 38},
-	{60, 28, 52, 20, 62, 30, 54, 22},
-	{3, 35, 11, 43, 1, 33, 9, 41},
-	{51, 19, 59, 27, 49, 17, 57, 25},
-	{15, 47, 7, 39, 13, 45, 5, 37},
-	{63, 31, 55, 23, 61, 29, 53, 21}}
+type DitheringMethod interface {
+	Init(pal Palette, width int, height int)
+	Process(imageData []IntColor, pal Palette) []int
+}
 
-var ditherMapSmall = [4][4]int{
-	{0, 8, 2, 10},
-	{12, 4, 14, 6},
-	{3, 11, 1, 9},
-	{15, 7, 13, 5}}
+//region POSTERIZE
 
-type ImageDithering func(imageData []IntColor, pal Palette, width, height int) []int
+type PosterizeDithering struct{}
 
-func DitheringPosterize(imageData []IntColor, pal Palette, width, height int) []int {
+func (dither *PosterizeDithering) Init(pal Palette, width int, height int) {}
+func (dither *PosterizeDithering) Process(imageData []IntColor, pal Palette) []int {
 	idata := make([]int, len(imageData))
 	for i := range idata {
-		//idata[i] = pal.GetIntColorIndex(imageData[i])
 		idata[i] = pal.GetFloatColorIndex(imageData[i].ToFloatColor())
 	}
 	return idata
 }
+
+//endregion
+
+//region FLOYD–STEINBERG
 
 func addError(dst *FloatColor, err float64) {
 	dst.R = clipFloat(dst.R + err)
@@ -39,33 +34,44 @@ func addError(dst *FloatColor, err float64) {
 	dst.B = clipFloat(dst.B + err)
 }
 
-func DitheringFS(imageData []IntColor, pal Palette, width, height int) []int {
-	data := make([]FloatColor, width*height)
-	idata := make([]int, width*height)
+type FSDithering struct {
+	fdata  []FloatColor
+	width  int
+	height int
+}
 
-	for i := range data {
-		data[i] = imageData[i].ToFloatColor()
+func (dither *FSDithering) Init(pal Palette, width int, height int) {
+	dither.fdata = make([]FloatColor, width*height)
+	dither.width = width
+	dither.height = height
+}
+
+func (dither *FSDithering) Process(imageData []IntColor, pal Palette) []int {
+	idata := make([]int, dither.width*dither.height)
+
+	for i := range dither.fdata {
+		dither.fdata[i] = imageData[i].ToFloatColor()
 	}
 
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			index := y*width + x
-			oldColor := data[index]
+	for y := 0; y < dither.height; y++ {
+		for x := 0; x < dither.width; x++ {
+			index := y*dither.width + x
+			oldColor := dither.fdata[index]
 			newColorIndex := pal.GetFloatColorIndex(oldColor)
 			newColor := pal[newColorIndex].ToFloatColor()
 			idata[index] = newColorIndex
-			data[index] = newColor
+			dither.fdata[index] = newColor
 			colError := (oldColor.R - newColor.R + oldColor.G - newColor.G + oldColor.B - newColor.B) / 3
-			if x < width-1 {
-				addError(&data[y*width+x+1], colError*7.0/16.0)
+			if x < dither.width-1 {
+				addError(&dither.fdata[y*dither.width+x+1], colError*7.0/16.0)
 			}
-			if y < height-1 {
+			if y < dither.height-1 {
 				if x > 0 {
-					addError(&data[(y+1)*width+x-1], colError*3.0/16.0)
+					addError(&dither.fdata[(y+1)*dither.width+x-1], colError*3.0/16.0)
 				}
-				addError(&data[(y+1)*width+x], colError*5.0/16.0)
-				if x < width-1 {
-					addError(&data[(y+1)*width+x+1], colError*1.0/16.0)
+				addError(&dither.fdata[(y+1)*dither.width+x], colError*5.0/16.0)
+				if x < dither.width-1 {
+					addError(&dither.fdata[(y+1)*dither.width+x+1], colError*1.0/16.0)
 				}
 			}
 		}
@@ -73,37 +79,57 @@ func DitheringFS(imageData []IntColor, pal Palette, width, height int) []int {
 	return idata
 }
 
-func DitheringPattern8(imageData []IntColor, pal Palette, width, height int) []int {
-	data := make([]FloatColor, width*height)
-	idata := make([]int, width*height)
-	pattern := make([]int, width*height)
+//endregion
 
-	for i := range data {
-		data[i] = imageData[i].ToFloatColor()
+//region PATTERN
+
+type PatternDithering struct {
+	width     int
+	height    int
+	pattern   *Pattern
+	fdata     []FloatColor
+	workers   int
+	rangeSize int
+	treshold  float64
+}
+
+func NewPatternDithering(pattern *Pattern, workers int, treshold float64) *PatternDithering {
+	if workers < 0 {
+		workers = runtime.NumCPU()
+	}
+	return &PatternDithering{
+		pattern:  pattern,
+		workers:  workers,
+		treshold: treshold,
+	}
+}
+
+func (dither *PatternDithering) Init(pal Palette, width int, height int) {
+	dither.width = width
+	dither.height = height
+	dither.pattern = dither.pattern.Reshape(width, height)
+	dither.fdata = make([]FloatColor, width*height)
+	dither.rangeSize = width * height / dither.workers
+}
+
+func (dither *PatternDithering) Process(imageData []IntColor, pal Palette) []int {
+	idata := make([]int, dither.width*dither.height)
+
+	for i := range dither.fdata {
+		dither.fdata[i] = imageData[i].ToFloatColor()
 	}
 
-	index := 0
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			pattern[index] = ditherMap[x%8][y%8]
-			index++
-		}
-	}
-
-	var treshold float64 = 0.5
 	var wg sync.WaitGroup
-	workers := runtime.NumCPU()
-	rangeSize := len(data) / workers
 
 	workerFunc := func(wdata []FloatColor, widata []int, wpattern []int) {
-		var candidates [8 * 8]int
+		candidates := make([]int, dither.pattern.Order)
 		for p := range wdata {
 			cerr := FloatColor{0, 0, 0}
 			for i := range candidates {
 				attempt := wdata[p]
-				attempt.R = clipFloat(attempt.R + cerr.R*treshold)
-				attempt.G = clipFloat(attempt.G + cerr.G*treshold)
-				attempt.B = clipFloat(attempt.B + cerr.B*treshold)
+				attempt.R = clipFloat(attempt.R + cerr.R*dither.treshold)
+				attempt.G = clipFloat(attempt.G + cerr.G*dither.treshold)
+				attempt.B = clipFloat(attempt.B + cerr.B*dither.treshold)
 				colorIndex := pal.GetFloatColorIndex(attempt)
 				candidates[i] = colorIndex
 				candidate := pal[colorIndex].ToFloatColor()
@@ -117,88 +143,32 @@ func DitheringPattern8(imageData []IntColor, pal Palette, width, height int) []i
 		wg.Done()
 	}
 
-	for i := 0; i < workers-1; i++ {
-		rangeStart := i * rangeSize
-		rangeEnd := (i + 1) * rangeSize
+	for i := 0; i < dither.workers-1; i++ {
+		rangeStart := i * dither.rangeSize
+		rangeEnd := (i + 1) * dither.rangeSize
 		wg.Add(1)
-		go workerFunc(data[rangeStart:rangeEnd], idata[rangeStart:rangeEnd], pattern[rangeStart:rangeEnd])
+		go workerFunc(dither.fdata[rangeStart:rangeEnd], idata[rangeStart:rangeEnd], dither.pattern.Data[rangeStart:rangeEnd])
 	}
-	rangeStart := (workers - 1) * rangeSize
+	rangeStart := (dither.workers - 1) * dither.rangeSize
 	wg.Add(1)
-	go workerFunc(data[rangeStart:], idata[rangeStart:], pattern[rangeStart:])
+	go workerFunc(dither.fdata[rangeStart:], idata[rangeStart:], dither.pattern.Data[rangeStart:])
 
 	wg.Wait()
 	return idata
 }
 
-func DitheringPattern4(imageData []IntColor, pal Palette, width, height int) []int {
-	data := make([]FloatColor, width*height)
-	idata := make([]int, width*height)
-	pattern := make([]int, width*height)
+//endregion
 
-	for i := range data {
-		data[i] = imageData[i].ToFloatColor()
-	}
-
-	index := 0
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			pattern[index] = ditherMapSmall[x%4][y%4]
-			index++
-		}
-	}
-
-	var treshold float64 = 0.5
-	var wg sync.WaitGroup
-	workers := runtime.NumCPU()
-	rangeSize := len(data) / workers
-
-	workerFunc := func(wdata []FloatColor, widata []int, wpattern []int) {
-		var candidates [4 * 4]int
-		for p := range wdata {
-			cerr := FloatColor{0, 0, 0}
-			for i := range candidates {
-				attempt := wdata[p]
-				attempt.R = clipFloat(attempt.R + cerr.R*treshold)
-				attempt.G = clipFloat(attempt.G + cerr.G*treshold)
-				attempt.B = clipFloat(attempt.B + cerr.B*treshold)
-				colorIndex := pal.GetFloatColorIndex(attempt)
-				candidates[i] = colorIndex
-				candidate := pal[colorIndex].ToFloatColor()
-				cerr.R += wdata[p].R - candidate.R
-				cerr.G += wdata[p].G - candidate.G
-				cerr.B += wdata[p].B - candidate.B
-			}
-			sort.Ints(candidates[:])
-			widata[p] = candidates[wpattern[p]]
-		}
-		wg.Done()
-	}
-
-	for i := 0; i < workers-1; i++ {
-		rangeStart := i * rangeSize
-		rangeEnd := (i + 1) * rangeSize
-		wg.Add(1)
-		go workerFunc(data[rangeStart:rangeEnd], idata[rangeStart:rangeEnd], pattern[rangeStart:rangeEnd])
-	}
-	rangeStart := (workers - 1) * rangeSize
-	wg.Add(1)
-	go workerFunc(data[rangeStart:], idata[rangeStart:], pattern[rangeStart:])
-
-	wg.Wait()
-	return idata
-}
-
-func FindDithering(name string) ImageDithering {
+func FindDithering(name string) DitheringMethod {
 	switch name {
 	case "none":
-		return DitheringPosterize
+		return &PosterizeDithering{}
 	case "fs":
-		return DitheringFS
+		return &FSDithering{}
 	case "pat8":
-		return DitheringPattern8
+		return NewPatternDithering(bayerMatrixBig, -1, 0.5)
 	case "pat4":
-		return DitheringPattern4
+		return NewPatternDithering(bayerMatrixSmall, -1, 0.5)
 	default:
 		return nil
 	}

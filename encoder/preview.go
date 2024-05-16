@@ -12,7 +12,7 @@ type Viewer struct {
 	renderer  *sdl.Renderer
 	files     []string
 	pal       Palette
-	dithering ImageDithering
+	dithering DitheringMethod
 	current   int
 	texture   *sdl.Texture
 	rect      *sdl.Rect
@@ -21,7 +21,7 @@ type Viewer struct {
 	h         int
 }
 
-func ViewerNew(files []string, palette Palette, dithering ImageDithering) (*Viewer, error) {
+func ViewerNew(files []string, palette Palette, dithering DitheringMethod) (*Viewer, error) {
 	result := &Viewer{files: files, pal: palette, dithering: dithering, current: 0, texture: nil, scale: 1}
 	var err error
 	if err := sdl.Init(sdl.INIT_VIDEO); err != nil {
@@ -66,7 +66,9 @@ func (v *Viewer) LoadImage(index int) {
 		panic(err)
 	}
 
-	imageIndexData := v.dithering(imageColorData, v.pal, width, height)
+	v.dithering.Init(v.pal, width, height)
+
+	imageIndexData := v.dithering.Process(imageColorData, v.pal)
 
 	v.texture, err = v.renderer.CreateTexture(sdl.PIXELFORMAT_ABGR8888, sdl.TEXTUREACCESS_STREAMING, int32(width), int32(height))
 	if err != nil {
@@ -159,7 +161,7 @@ func (v *Viewer) Run() error {
 	return nil
 }
 
-func Preview(files []string, palette Palette, dithering ImageDithering) {
+func Preview(files []string, palette Palette, dithering DitheringMethod) {
 	palette.Sort()
 	viewer, err := ViewerNew(files, palette, dithering)
 	if err != nil {
