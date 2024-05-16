@@ -280,6 +280,7 @@ func (cc *ColorCalc) Run() {
 	cc.errors = make([]float64, 0, cc.maxAttempt)
 	fmt.Print("Calculating...\n\n\n")
 	startTime := time.Now()
+	lastPrint := time.Now()
 	for a := 1; a < cc.maxAttempt+1; a++ {
 		cc.initCentroids()
 		for i := 1; i < cc.maxSteps+1; i++ {
@@ -289,7 +290,10 @@ func (cc *ColorCalc) Run() {
 				break
 			}
 			cc.calcCentroids()
-			cc.printState(a, i, startTime)
+			if time.Since(lastPrint).Seconds() > 1.0 || i == 1 {
+				cc.printState(a, i, startTime)
+				lastPrint = time.Now()
+			}
 		}
 		cc.calcSegments()
 		colorErr := cc.CalcError()
