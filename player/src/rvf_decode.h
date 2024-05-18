@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include "decoding.h"
 
 #pragma pack(push, 1)
 typedef struct RVF_Color {
@@ -28,6 +29,7 @@ typedef struct RVF_File {
     int current_frame;
     long frames_offset;
     int frame_size;
+    Decoder* decoder;
 } RVF_File;
 
 RVF_File* rvf_open(const char* filename);

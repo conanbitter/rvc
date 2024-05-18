@@ -49,15 +49,18 @@ rvf_open(const char* filename) {
     fread(result->palette, sizeof(RVF_Color), result->colors, result->file);
 
     result->frames_offset = ftell(result->file);
-    result->current_frame = 0;
+    result->current_frame = -1;
 
     result->frame_size = result->width * result->height;
     result->data = malloc(result->frame_size);
+
+    result->decoder = dec_new(result->width, result->height);
     return result;
 }
 
 void rvf_close(RVF_File** file) {
     fclose((*file)->file);
+    dec_free(&((*file)->decoder));
     free((*file)->data);
     free((*file)->palette);
     free(*file);
