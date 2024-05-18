@@ -20,12 +20,14 @@ typedef struct RVF_File {
     int colors;
     int length;
     // Other data
+    int is_compressed;
     FILE* file;
     float frame_time;
     RVF_Color* palette;
     uint8_t* data;
     int current_frame;
     long frames_offset;
+    int frame_size;
 } RVF_File;
 
 RVF_File* rvf_open(const char* filename);
