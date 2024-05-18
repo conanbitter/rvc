@@ -944,11 +944,11 @@ func packBits8(data []int) []byte {
 }
 
 func getShortLength(length int) byte {
-	return byte((length - 1) & 0xF)
+	return byte(((length - 1) & 0xF) << 4)
 }
 
 func getLongLengthHi(length int) byte {
-	return byte(((length - 1) >> 8) & 0xF)
+	return byte((((length - 1) >> 8) & 0xF) << 4)
 }
 
 func getLongLengthLo(length int) byte {
