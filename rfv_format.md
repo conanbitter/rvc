@@ -21,8 +21,15 @@ File extention *.rvf
     }
     u4 frame_count
     f4 frame_time
+	u1 flags
 
-This format version is "1", therefore first 4 bytes will be `(u4) 0x01465652`
+This format version is "2", therefore first 4 bytes will be `(u4) 0x02465652`
+
+Flags may be:
+|Flag|Value|
+|---|---|
+|COMPRESSION_NONE|0b00000000|
+|COMPRESSION_FULL|0b00000001|
 
 ### metadata:
 
@@ -42,48 +49,26 @@ This format version is "1", therefore first 4 bytes will be `(u4) 0x01465652`
 
     <frame> frames[frame_count]
 
-### frame:
+### frame (for uncompressed files):
 
-    u4 frame_data_size  # incl. frame type & tail frame_data_size
-    u1 frame_type
-    <frame_data>
+    u1 frame_data[width * height]
+
+### frame (for compressed files):
+
+    u4 frame_data_size  # incl. flags & tail frame_data_size
+    u1 flags
+    u1 frame_data[frame_data_size - 1 - 4]
     u4 frame_data_size  # duplicate for backwards seeking
 
-`frame_data_size` includes `frame_type` and tail `frame_data_size`
+`frame_data_size` includes `flags` and tail `frame_data_size`
 
-frame types:
-- **RAW** - frame without compression
-- **REPEAT** - frame repeating previous frame
-- **SOLID** - frame filled with single color
-- **ENCODED** - frame with comression
-- **ENCODED_KEY** - frame with compression independent from previous frame
-- **EOF** - endo of file marker
+Flags may be:
+|Flag|Value|Description
+|---|---|---|
+|IS_REGULAR|0b00000000|This is a regular frame|
+|IS_KEYFRAME|0b00000001|This is a keyframe (independent from a previous frame)
+|IS_FIRST|0b00000010|This is the first frame in file
+|IS_LAST|0b00000100|This is the last frame in file
 
-Frames RAW, SOLID and ENCODED_KEY are keyframes.
-
-### frame_data
-
-frame_type = RAW | ENCODED | ENCODED_KEY:
-
-    u1 frame_data[frame_data_size - 1 - 4]
-
-    if frame_type == RAW:
-    frame_data_size = header.frame_size.width * header.frame_size.height + 1 + 4
-    frame_data = u1 colors[header.frame_size.width * header.frame_size.height]
-    
-
-frame_type = SOLID:
-    
-    u1 r,g,b
-
-    frame_data_size = 1 + 4 + 3
-    
-frame_type = REPEAT | EOF:
-    
-    empty
-
-    frame_data_size = 1 + 4
-    
-    
 ### frame mapping:
-    .. | prev_skip | next_skip | type | data | ...
+    .. | prev_skip | next_skip | flags | data | ...
