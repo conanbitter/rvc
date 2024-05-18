@@ -76,6 +76,11 @@ uint8_t* rvf_next_frame(RVF_File* file) {
     printf("%d / %d\n", file->current_frame, file->length);
 
     if (file->is_compressed) {
+        uint32_t data_length;
+        int flags;
+        fread(&data_length, 4, 1, file->file);
+        fread(&flags, 1, 1, file->file);
+        dec_decode(file->decoder, file->file, data_length, file->data);
     } else {
         fread(file->data, file->frame_size, 1, file->file);
     }
