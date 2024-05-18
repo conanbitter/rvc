@@ -425,67 +425,67 @@ func (encoder *FrameEncoder) Pack() []byte {
 		switch enc.BlockType {
 		case ENC_SKIP:
 			if enc.Count <= ShortSize {
-				result = append(result, ENC_SKIP&getShortLength(enc.Count))
+				result = append(result, ENC_SKIP|getShortLength(enc.Count))
 			} else {
-				result = append(result, ENC_SKIP_LONG&getLongLengthHi(enc.Count))
+				result = append(result, ENC_SKIP_LONG|getLongLengthHi(enc.Count))
 				result = append(result, getLongLengthLo(enc.Count))
 			}
 		case ENC_REPEAT:
 			if enc.Count <= ShortSize {
-				result = append(result, ENC_REPEAT&getShortLength(enc.Count))
+				result = append(result, ENC_REPEAT|getShortLength(enc.Count))
 			} else {
-				result = append(result, ENC_REPEAT_LONG&getLongLengthHi(enc.Count))
+				result = append(result, ENC_REPEAT_LONG|getLongLengthHi(enc.Count))
 				result = append(result, getLongLengthLo(enc.Count))
 			}
 		case ENC_SOLID:
 			if enc.Count <= ShortSize {
-				result = append(result, ENC_SOLID&getShortLength(enc.Count))
+				result = append(result, ENC_SOLID|getShortLength(enc.Count))
 			} else {
-				result = append(result, ENC_SOLID_LONG&getLongLengthHi(enc.Count))
+				result = append(result, ENC_SOLID_LONG|getLongLengthHi(enc.Count))
 				result = append(result, getLongLengthLo(enc.Count))
 			}
 			result = append(result, byte(enc.MetaData[0]))
 		case ENC_PAL2:
-			result = append(result, ENC_PAL2&getShortLength(enc.Count))
+			result = append(result, ENC_PAL2|getShortLength(enc.Count))
 			result = writeInts(result, enc.MetaData)
 			for _, pd := range enc.PixelData {
 				result = append(result, packBits2(pd)...)
 			}
 		case ENC_PAL2_CACHE:
-			result = append(result, ENC_PAL2_CACHE&getShortLength(enc.Count))
+			result = append(result, ENC_PAL2_CACHE|getShortLength(enc.Count))
 			result = append(result, byte(enc.MetaData[0]))
 			for _, pd := range enc.PixelData {
 				result = append(result, packBits2(pd)...)
 			}
 		case ENC_PAL4:
-			result = append(result, ENC_PAL4&getShortLength(enc.Count))
+			result = append(result, ENC_PAL4|getShortLength(enc.Count))
 			result = writeInts(result, enc.MetaData)
 			for _, pd := range enc.PixelData {
 				result = append(result, packBits4(pd)...)
 			}
 		case ENC_PAL4_CACHE:
-			result = append(result, ENC_PAL4_CACHE&getShortLength(enc.Count))
+			result = append(result, ENC_PAL4_CACHE|getShortLength(enc.Count))
 			result = append(result, byte(enc.MetaData[0]))
 			for _, pd := range enc.PixelData {
 				result = append(result, packBits4(pd)...)
 			}
 		case ENC_PAL8:
-			result = append(result, ENC_PAL8&getShortLength(enc.Count))
+			result = append(result, ENC_PAL8|getShortLength(enc.Count))
 			result = writeInts(result, enc.MetaData)
 			for _, pd := range enc.PixelData {
 				result = append(result, packBits8(pd)...)
 			}
 		case ENC_PAL8_CACHE:
-			result = append(result, ENC_PAL8_CACHE&getShortLength(enc.Count))
+			result = append(result, ENC_PAL8_CACHE|getShortLength(enc.Count))
 			result = append(result, byte(enc.MetaData[0]))
 			for _, pd := range enc.PixelData {
 				result = append(result, packBits8(pd)...)
 			}
 		case ENC_RAW:
 			if enc.Count <= ShortSize {
-				result = append(result, ENC_RAW&getShortLength(enc.Count))
+				result = append(result, ENC_RAW|getShortLength(enc.Count))
 			} else {
-				result = append(result, ENC_RAW_LONG&getLongLengthHi(enc.Count))
+				result = append(result, ENC_RAW_LONG|getLongLengthHi(enc.Count))
 				result = append(result, getLongLengthLo(enc.Count))
 			}
 			for _, pd := range enc.PixelData {
@@ -944,11 +944,11 @@ func packBits8(data []int) []byte {
 }
 
 func getShortLength(length int) byte {
-	return byte(((length - 1) & 0xF) << 4)
+	return byte((length - 1) & 0xF)
 }
 
 func getLongLengthHi(length int) byte {
-	return byte((((length - 1) >> 8) & 0xF) << 4)
+	return byte(((length - 1) >> 8) & 0xF)
 }
 
 func getLongLengthLo(length int) byte {
