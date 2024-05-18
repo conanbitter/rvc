@@ -203,6 +203,7 @@ func Encode(filename string, palette Palette, files []string, frameRate float32,
 		progressbar.OptionUseANSICodes(true),
 		progressbar.OptionEnableColorCodes(true),
 		progressbar.OptionShowIts(),
+		progressbar.OptionSetItsString("frames"),
 	)
 
 	bar.Set(0)
@@ -222,6 +223,8 @@ func Encode(filename string, palette Palette, files []string, frameRate float32,
 
 	curve := GetHilbertCurve(bw, bh)
 	encoder := NewEncoder(palette, treshold)
+
+	totalSize := uint64(0)
 
 	for i, file := range files {
 		imageColorData, fwidth, fheight, err := ImageLoad(file)
@@ -247,11 +250,14 @@ func Encode(filename string, palette Palette, files []string, frameRate float32,
 			flags |= FrameIsKeyframe
 		}
 		rvf.WriteCompressed(packdata, flags)
+		totalSize += uint64(len(packdata))
 
 		bar.Set(i + 1)
 	}
 
+	compression := float64(totalSize) / float64(width*height*len(files)) * 100
+
 	bar.Finish()
-	fmt.Println("\nEncoding statistics:")
+	fmt.Printf("\nCompression: %.f %%\nEncoding statistics:\n", compression)
 	encoder.PrintStats()
 }
