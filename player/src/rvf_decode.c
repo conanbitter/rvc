@@ -76,10 +76,11 @@ uint8_t* rvf_next_frame(RVF_File* file) {
 
     if (file->is_compressed) {
         uint32_t data_length;
-        int flags;
+        uint8_t flags;
         fread(&data_length, 4, 1, file->file);
         fread(&flags, 1, 1, file->file);
-        dec_decode(file->decoder, file->file, data_length, file->data);
+        dec_decode(file->decoder, file->file, data_length - 4 - 1, file->data);
+        fseek(file->file, 4, SEEK_CUR);
     } else {
         fread(file->data, file->frame_size, 1, file->file);
     }

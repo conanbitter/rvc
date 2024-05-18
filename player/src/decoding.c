@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include "decoding.h"
 
 typedef struct Point {
@@ -142,18 +143,18 @@ static void unpack_bits4(uint8_t* src, uint8_t* dst) {
 static void unpack_bits8(uint8_t* src, uint8_t* dst) {
     dst[0] = (src[0] >> 5) & 0b111;
     dst[1] = (src[0] >> 2) & 0b111;
-    dst[2] = (src[0] & 0b11) << 1 + (src[1] >> 7) & 0b1;
+    dst[2] = (src[0] & 0b11) << 1 | (src[1] >> 7) & 0b1;
     dst[3] = (src[1] >> 4) & 0b111;
     dst[4] = (src[1] >> 1) & 0b111;
-    dst[5] = (src[1] & 0b1) << 2 + (src[2] >> 6) & 0b11;
+    dst[5] = (src[1] & 0b1) << 2 | (src[2] >> 6) & 0b11;
     dst[6] = (src[2] >> 3) & 0b111;
     dst[7] = src[2] & 0b111;
     dst[8] = (src[3] >> 5) & 0b111;
     dst[9] = (src[3] >> 2) & 0b111;
-    dst[10] = (src[3] & 0b11) << 1 + (src[4] >> 7) & 0b1;
+    dst[10] = (src[3] & 0b11) << 1 | (src[4] >> 7) & 0b1;
     dst[11] = (src[4] >> 4) & 0b111;
     dst[12] = (src[4] >> 1) & 0b111;
-    dst[13] = (src[4] & 0b1) << 2 + (src[5] >> 6) & 0b11;
+    dst[13] = (src[4] & 0b1) << 2 | (src[5] >> 6) & 0b11;
     dst[14] = (src[5] >> 3) & 0b111;
     dst[15] = src[5] & 0b111;
 }
@@ -164,14 +165,15 @@ void palcache_init(PaletteCache* cache, int colors) {
     cache->pals = calloc(256, colors);
     cache->head = -1;
     cache->count = 0;
+    cache->colors = colors;
 }
 
-void palcache_add(PaletteCache* cache, uint8_t* pal, int colors) {
+void palcache_add(PaletteCache* cache, uint8_t* pal) {
     cache->head++;
     if (cache->head >= 256) {
         cache->head = 0;
     }
-    memcpy(cache->pals[cache->head], pal, colors);
+    memcpy(&cache->pals[cache->head * cache->colors], pal, cache->colors);
     if (cache->count < 256) {
         cache->count++;
     }
@@ -184,6 +186,10 @@ void palcache_reset(PaletteCache* cache) {
 
 void palcache_free(PaletteCache* cache) {
     free(cache->pals);
+}
+
+uint8_t* palcache_get_pal(PaletteCache* cache, int index) {
+    return &cache->pals[index * cache->colors];
 }
 
 //== DECODER ==//
@@ -227,15 +233,15 @@ static decode_blocks(Decoder* dec) {
     palcache_reset(&dec->cache[1]);
     palcache_reset(&dec->cache[2]);
     while (ind < dec->buffer_size) {
-        uint8_t block_head = dec->buffer[ind];
-        uint8_t block_type = dec->buffer[ind] >> 4;
+        uint8_t block_type = dec->buffer[ind] & 0b11110000;
         int block_length = 0;
         if (block_type == ENC_RAW_LONG || block_type == ENC_REPEAT_LONG || block_type == ENC_SKIP_LONG || block_type == ENC_SOLID_LONG || block_type == ENC_SOLID_SEP_LONG) {
-            block_length = (int)(dec->buffer[ind] & 0b11110000) << 4 + dec->buffer[ind + 1];
+            block_length = ((int)(dec->buffer[ind] & 0b1111) << 8) + dec->buffer[ind + 1];
             ind++;
         } else {
-            block_length = (dec->buffer[ind] >> 4) & 0b1111;
+            block_length = dec->buffer[ind] & 0b1111;
         }
+        block_length += 1;
         ind++;
         switch (block_type) {
             case ENC_SKIP:
@@ -264,15 +270,15 @@ static decode_blocks(Decoder* dec) {
                 if (block_type == ENC_PAL2) {
                     pal = &dec->buffer[ind];
                     ind += 2;
-                    palcache_add(&dec->cache[0], pal, 2);
+                    palcache_add(&dec->cache[0], pal);
                 } else {
                     int palind = dec->buffer[ind++];
-                    pal = dec->cache[0].pals[palind];
+                    pal = palcache_get_pal(&dec->cache[0], palind);
                 }
                 uint8_t block[16];
-                unpack_bits2(&dec->buffer[ind], block);
-                ind += 2;
                 for (int i = 0; i < block_length; i++) {
+                    unpack_bits2(&dec->buffer[ind], block);
+                    ind += 2;
                     for (int j = 0; j < 16; j++) {
                         dec->blocks[bi][j] = pal[block[j]];
                     }
@@ -285,15 +291,15 @@ static decode_blocks(Decoder* dec) {
                 if (block_type == ENC_PAL4) {
                     pal = &dec->buffer[ind];
                     ind += 4;
-                    palcache_add(&dec->cache[1], pal, 4);
+                    palcache_add(&dec->cache[1], pal);
                 } else {
                     int palind = dec->buffer[ind++];
-                    pal = dec->cache[1].pals[palind];
+                    pal = palcache_get_pal(&dec->cache[1], palind);
                 }
                 uint8_t block[16];
-                unpack_bits4(&dec->buffer[ind], block);
-                ind += 4;
                 for (int i = 0; i < block_length; i++) {
+                    unpack_bits4(&dec->buffer[ind], block);
+                    ind += 4;
                     for (int j = 0; j < 16; j++) {
                         dec->blocks[bi][j] = pal[block[j]];
                     }
@@ -306,15 +312,15 @@ static decode_blocks(Decoder* dec) {
                 if (block_type == ENC_PAL8) {
                     pal = &dec->buffer[ind];
                     ind += 8;
-                    palcache_add(&dec->cache[2], pal, 8);
+                    palcache_add(&dec->cache[2], pal);
                 } else {
                     int palind = dec->buffer[ind++];
-                    pal = dec->cache[2].pals[palind];
+                    pal = palcache_get_pal(&dec->cache[2], palind);
                 }
                 uint8_t block[16];
-                unpack_bits8(&dec->buffer[ind], block);
-                ind += 6;
                 for (int i = 0; i < block_length; i++) {
+                    unpack_bits8(&dec->buffer[ind], block);
+                    ind += 6;
                     for (int j = 0; j < 16; j++) {
                         dec->blocks[bi][j] = pal[block[j]];
                     }

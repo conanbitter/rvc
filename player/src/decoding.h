@@ -7,9 +7,10 @@
 typedef uint8_t Block[16];
 
 typedef struct PaletteCache {
-    uint8_t** pals;
+    uint8_t* pals;
     int count;
     int head;
+    int colors;
 } PaletteCache;
 
 typedef struct Decoder {
