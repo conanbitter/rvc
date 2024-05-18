@@ -73,7 +73,6 @@ uint8_t* rvf_next_frame(RVF_File* file) {
         file->current_frame = 0;
         fseek(file->file, file->frames_offset, SEEK_SET);
     }
-    printf("%d / %d\n", file->current_frame, file->length);
 
     if (file->is_compressed) {
         uint32_t data_length;
