@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"math"
 	"os"
 	"strings"
 
@@ -117,9 +118,20 @@ func main() {
 			}
 		}
 	case "encode":
-		RawEncode(argOutput, PaletteLoad(argPalFrom), listFiles(argInputString), float32(argFrameRate), FindDithering(argDithering))
-	case "compress":
-		fmt.Println("command \"compress\" is not implemented")
+		if argCompression == 0 {
+			RawEncode(argOutput,
+				PaletteLoad(argPalFrom),
+				listFiles(argInputString),
+				float32(argFrameRate),
+				FindDithering(argDithering))
+		} else {
+			Encode(argOutput,
+				PaletteLoad(argPalFrom),
+				listFiles(argInputString),
+				float32(argFrameRate),
+				FindDithering(argDithering),
+				0.02)
+		}
 	case "preview":
 		if argPalFrom == "" {
 			fmt.Println("Must specify palette filename (-pf, --pal-from)")
@@ -159,7 +171,7 @@ func RawEncode(filename string, palette Palette, files []string, frameRate float
 
 	dithering.Init(palette, width, height)
 
-	rvf := NewRVFfile(filename, palette, width, height, len(files), frameRate)
+	rvf := NewRVFfile(filename, palette, width, height, len(files), frameRate, CompressionNone)
 	defer rvf.Close()
 
 	bar.Set(0)
@@ -178,4 +190,68 @@ func RawEncode(filename string, palette Palette, files []string, frameRate float
 	}
 
 	bar.Finish()
+}
+
+func Encode(filename string, palette Palette, files []string, frameRate float32, dithering DitheringMethod, treshold float64) {
+	if len(files) == 0 {
+		return
+	}
+
+	bar := progressbar.NewOptions(len(files),
+		progressbar.OptionFullWidth(),
+		progressbar.OptionShowCount(),
+		progressbar.OptionUseANSICodes(true),
+		progressbar.OptionEnableColorCodes(true),
+		progressbar.OptionShowIts(),
+	)
+
+	bar.Set(0)
+
+	_, width, height, err := ImageLoad(files[0])
+	if err != nil {
+		panic(err)
+	}
+
+	dithering.Init(palette, width, height)
+
+	rvf := NewRVFfile(filename, palette, width, height, len(files), frameRate, CompressionFull)
+	defer rvf.Close()
+
+	bw := int(math.Ceil(float64(width) / 4))
+	bh := int(math.Ceil(float64(height) / 4))
+
+	curve := GetHilbertCurve(bw, bh)
+	encoder := NewEncoder(palette, treshold)
+
+	for i, file := range files {
+		imageColorData, fwidth, fheight, err := ImageLoad(file)
+		if err != nil {
+			panic(err)
+		}
+		if fwidth != width || fheight != height {
+			panic(fmt.Errorf("frame size incorrect (%dx%d  must be %dx%d)", fwidth, fheight, width, height))
+		}
+		imageIndexData := dithering.Process(imageColorData, palette)
+		blocks, _, _ := ImageToBlocks(imageIndexData, fwidth, fheight)
+		hblocks := ApplyCurve(blocks, curve)
+		encoder.Encode(hblocks)
+		packdata := encoder.Pack()
+		flags := FrameRegular
+		if i == 0 {
+			flags |= FrameIsFirst
+		}
+		if i == len(files)-1 {
+			flags |= FrameIsLast
+		}
+		if encoder.IsClean() {
+			flags |= FrameIsKeyframe
+		}
+		rvf.WriteCompressed(packdata, flags)
+
+		bar.Set(i + 1)
+	}
+
+	bar.Finish()
+	fmt.Println("\nEncoding statistics:")
+	encoder.PrintStats()
 }

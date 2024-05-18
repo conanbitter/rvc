@@ -81,6 +81,14 @@ func GetHilbertCurve(width int, height int) []int {
 	return result
 }
 
+func ApplyCurve(blocks []ImageBlock, curve []int) []ImageBlock {
+	result := make([]ImageBlock, len(blocks))
+	for i, n := range curve {
+		result[i] = blocks[n]
+	}
+	return result
+}
+
 func drawLine(x1 int, y1 int, x2 int, y2 int, image *image.Gray) {
 	var (
 		p1 int
