@@ -10,20 +10,22 @@ type RVFfile struct {
 	file *os.File
 }
 
-type FrameType uint8
-
 const (
-	FrameTypeRaw FrameType = iota
-	FrameTypeEof
+	CompressionNone uint8 = 0b00000000
+	CompressionFull uint8 = 0b00000001
+	FrameRegular    uint8 = 0b00000000
+	FrameIsKeyframe uint8 = 0b00000001
+	FrameIsFirst    uint8 = 0b00000010
+	FrameIsLast     uint8 = 0b00000100
 )
 
-var magic = [4]byte{'R', 'V', 'F', 1}
+var magic = [4]byte{'R', 'V', 'F', 2}
 
 func write(file io.Writer, data interface{}) {
 	binary.Write(file, binary.LittleEndian, data)
 }
 
-func NewRVFfile(filename string, palette Palette, width int, height int, frames int, frameRate float32) *RVFfile {
+func NewRVFfile(filename string, palette Palette, width int, height int, frames int, frameRate float32, flags uint8) *RVFfile {
 	result := &RVFfile{}
 	var err error
 	result.file, err = os.Create(filename)
@@ -39,6 +41,7 @@ func NewRVFfile(filename string, palette Palette, width int, height int, frames 
 	write(result.file, uint32(height))
 	write(result.file, uint32(frames))
 	write(result.file, float32(1/frameRate))
+	write(result.file, flags)
 
 	//Palette
 	write(result.file, uint8(palette.Len()-1))
@@ -52,19 +55,19 @@ func NewRVFfile(filename string, palette Palette, width int, height int, frames 
 }
 
 func (rvf *RVFfile) WriteRaw(data []int) {
-	var datasize uint32 = uint32(len(data)) + 1 + 4
-	write(rvf.file, datasize)
-	write(rvf.file, FrameTypeRaw)
 	for _, item := range data {
 		write(rvf.file, byte(item))
 	}
-	write(rvf.file, datasize)
+}
+
+func (rvf *RVFfile) WriteCompressed(data []byte, flags uint8) {
+	frameSize := len(data) + 1 + 4
+	write(rvf.file, uint32(frameSize))
+	write(rvf.file, flags)
+	rvf.file.Write(data)
+	write(rvf.file, uint32(frameSize))
 }
 
 func (rvf *RVFfile) Close() {
-	var datasize uint32 = 1 + 4
-	write(rvf.file, datasize)
-	write(rvf.file, FrameTypeEof)
-	write(rvf.file, datasize)
 	rvf.file.Close()
 }
