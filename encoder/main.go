@@ -10,6 +10,19 @@ import (
 	"github.com/schollz/progressbar/v3"
 )
 
+var compressionLevels []float64 = []float64{
+	0.0001,
+	0.001,
+	0.005,
+	0.01,
+	0.02,
+	0.05,
+	0.1,
+	0.2,
+	0.5,
+	1.0,
+}
+
 func main() {
 	/*
 		//EncSaveRaw("12")
@@ -125,12 +138,19 @@ func main() {
 				float32(argFrameRate),
 				FindDithering(argDithering))
 		} else {
+			comp := argCompression
+			if comp < 0 {
+				comp = 0
+			}
+			if comp >= len(compressionLevels) {
+				comp = len(compressionLevels) - 1
+			}
 			Encode(argOutput,
 				PaletteLoad(argPalFrom),
 				listFiles(argInputString),
 				float32(argFrameRate),
 				FindDithering(argDithering),
-				0.02)
+				compressionLevels[comp]) //0.02
 		}
 	case "preview":
 		if argPalFrom == "" {
