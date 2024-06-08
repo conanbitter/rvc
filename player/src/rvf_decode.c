@@ -6,10 +6,11 @@
 #define FRAME_REGULAR 0b00000000
 #define FRAME_IS_KEYFRAME 0b00000001
 #define FRAME_IS_FIRST 0b00000010
-#define FRAME_IS_LAS 0b00000100
+#define FRAME_IS_LAST 0b00000100
 
-RVF_File*
-rvf_open(const char* filename) {
+static int debug = 0;
+
+RVF_File* rvf_open(const char* filename) {
     RVF_File* result = malloc(sizeof(RVF_File));
     result->file = fopen(filename, "rb");
 
@@ -79,10 +80,14 @@ uint8_t* rvf_next_frame(RVF_File* file) {
         uint8_t flags;
         fread(&data_length, 4, 1, file->file);
         fread(&flags, 1, 1, file->file);
-        dec_decode(file->decoder, file->file, data_length - 4 - 1, file->data);
+        dec_decode(file->decoder, file->file, data_length - 4 - 1, file->data, debug);
         fseek(file->file, 4, SEEK_CUR);
     } else {
         fread(file->data, file->frame_size, 1, file->file);
     }
     return file->data;
+}
+
+void rvf_debug(int enabled) {
+    debug = enabled;
 }

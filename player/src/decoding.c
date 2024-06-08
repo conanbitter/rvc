@@ -339,6 +339,67 @@ static decode_blocks(Decoder* dec) {
     }
 }
 
+static decode_blocks_debug(Decoder* dec) {
+    int ind = 0;
+    int bi = 0;
+    palcache_reset(&dec->cache[0]);
+    palcache_reset(&dec->cache[1]);
+    palcache_reset(&dec->cache[2]);
+    while (ind < dec->buffer_size) {
+        uint8_t block_type = dec->buffer[ind] & 0b11110000;
+        int block_length = 0;
+        if (block_type == ENC_RAW_LONG || block_type == ENC_REPEAT_LONG || block_type == ENC_SKIP_LONG || block_type == ENC_SOLID_LONG || block_type == ENC_SOLID_SEP_LONG) {
+            block_length = ((int)(dec->buffer[ind] & 0b1111) << 8) + dec->buffer[ind + 1];
+            ind++;
+        } else {
+            block_length = dec->buffer[ind] & 0b1111;
+        }
+        block_length += 1;
+        ind++;
+        for (int i = 0; i < block_length; i++) {
+            memset(&dec->blocks[bi], block_type >> 4, sizeof(Block));
+            bi++;
+        }
+        switch (block_type) {
+            case ENC_SOLID:
+            case ENC_SOLID_LONG:
+                ind++;
+                break;
+            case ENC_PAL2:
+            case ENC_PAL2_CACHE:
+                if (block_type == ENC_PAL2) {
+                    ind += 2;
+                } else {
+                    ind++;
+                }
+                ind += 2 * block_length;
+                break;
+            case ENC_PAL4:
+            case ENC_PAL4_CACHE:
+                if (block_type == ENC_PAL4) {
+                    ind += 4;
+                } else {
+                    ind++;
+                }
+                ind += 4 * block_length;
+                break;
+            case ENC_PAL8:
+            case ENC_PAL8_CACHE:
+                if (block_type == ENC_PAL8) {
+                    ind += 8;
+                } else {
+                    ind++;
+                }
+                ind += 6 * block_length;
+                break;
+            case ENC_RAW:
+            case ENC_RAW_LONG:
+                ind += 16 * block_length;
+                break;
+        }
+    }
+}
+
 static unwrap_pixels(Decoder* dec, uint8_t* dst) {
     for (int y = 0; y < dec->height; y++)
         for (int x = 0; x < dec->width; x++) {
@@ -352,7 +413,7 @@ static unwrap_pixels(Decoder* dec, uint8_t* dst) {
         }
 }
 
-void dec_decode(Decoder* dec, FILE* file, uint32_t length, uint8_t* dest) {
+void dec_decode(Decoder* dec, FILE* file, uint32_t length, uint8_t* dest, int debug) {
     if (length > dec->buffer_capacity) {
         free(dec->buffer);
         dec->buffer = malloc(length);
@@ -360,6 +421,10 @@ void dec_decode(Decoder* dec, FILE* file, uint32_t length, uint8_t* dest) {
     }
     dec->buffer_size = length;
     fread(dec->buffer, length, 1, file);
-    decode_blocks(dec);
+    if (debug) {
+        decode_blocks_debug(dec);
+    } else {
+        decode_blocks(dec);
+    }
     unwrap_pixels(dec, dest);
 }

@@ -30,6 +30,6 @@ typedef struct Decoder {
 
 Decoder* dec_new(int frame_width, int frame_height);
 void dec_free(Decoder** dec);
-void dec_decode(Decoder* dec, FILE* file, uint32_t length, uint8_t* dest);
+void dec_decode(Decoder* dec, FILE* file, uint32_t length, uint8_t* dest, int debug);
 
 #endif
