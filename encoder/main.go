@@ -65,6 +65,7 @@ func main() {
 		argFrameRate   float64
 		argDithering   string
 		argCompression int
+		argAudio       string
 	)
 
 	flags.StringVar(&argOutput, "o", "", "output file")
@@ -79,6 +80,8 @@ func main() {
 	flags.StringVar(&argDithering, "dithering", "none", "dithering method")
 	flags.IntVar(&argCompression, "c", 0, "compression level")
 	flags.IntVar(&argCompression, "compression", 0, "compression level")
+	flags.StringVar(&argAudio, "audio", "", "compression level")
+	flags.StringVar(&argAudio, "a", "", "compression level")
 
 	flags.Parse(os.Args[2:])
 	argInput := flags.Args()
@@ -116,6 +119,7 @@ func main() {
 	fmt.Printf("Frame rate: %f\n", argFrameRate)
 	fmt.Printf("Ditherig: %s\n", argDithering)
 	fmt.Printf("Compression level: %d\n", argCompression)
+	fmt.Printf("Audio: %s\n", argAudio)
 
 	switch command {
 	case "palette":
@@ -131,12 +135,17 @@ func main() {
 			}
 		}
 	case "encode":
+		var audioFile *WAVfile = nil
+		if argAudio != "" {
+			audioFile = OpenWAV(argAudio)
+		}
 		if argCompression == 0 {
 			RawEncode(argOutput,
 				PaletteLoad(argPalFrom),
 				listFiles(argInputString),
 				float32(argFrameRate),
-				FindDithering(argDithering))
+				FindDithering(argDithering),
+				audioFile)
 		} else {
 			comp := argCompression
 			if comp < 0 {
@@ -145,12 +154,14 @@ func main() {
 			if comp >= len(compressionLevels) {
 				comp = len(compressionLevels) - 1
 			}
+
 			Encode(argOutput,
 				PaletteLoad(argPalFrom),
 				listFiles(argInputString),
 				float32(argFrameRate),
 				FindDithering(argDithering),
-				compressionLevels[comp]) //0.02
+				compressionLevels[comp], //0.02
+				audioFile)
 		}
 	case "preview":
 		if argPalFrom == "" {
@@ -174,7 +185,7 @@ func main() {
 	}
 }
 
-func RawEncode(filename string, palette Palette, files []string, frameRate float32, dithering DitheringMethod) {
+func RawEncode(filename string, palette Palette, files []string, frameRate float32, dithering DitheringMethod, audio *WAVfile) {
 	if len(files) == 0 {
 		return
 	}
@@ -191,7 +202,7 @@ func RawEncode(filename string, palette Palette, files []string, frameRate float
 
 	dithering.Init(palette, width, height)
 
-	rvf := NewRVFfile(filename, palette, width, height, len(files), frameRate, CompressionNone)
+	rvf := NewRVFfile(filename, palette, width, height, len(files), frameRate, CompressionNone, audio)
 	defer rvf.Close()
 
 	bar.Set(0)
@@ -212,7 +223,7 @@ func RawEncode(filename string, palette Palette, files []string, frameRate float
 	bar.Finish()
 }
 
-func Encode(filename string, palette Palette, files []string, frameRate float32, dithering DitheringMethod, treshold float64) {
+func Encode(filename string, palette Palette, files []string, frameRate float32, dithering DitheringMethod, treshold float64, audio *WAVfile) {
 	if len(files) == 0 {
 		return
 	}
@@ -235,7 +246,7 @@ func Encode(filename string, palette Palette, files []string, frameRate float32,
 
 	dithering.Init(palette, width, height)
 
-	rvf := NewRVFfile(filename, palette, width, height, len(files), frameRate, CompressionFull)
+	rvf := NewRVFfile(filename, palette, width, height, len(files), frameRate, CompressionFull, audio)
 	defer rvf.Close()
 
 	bw := int(math.Ceil(float64(width) / 4))
