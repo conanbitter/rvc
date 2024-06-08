@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <windows.h>
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 #include "rvf_decode.h"
@@ -114,15 +115,45 @@ void set_scale(int scale) {
     screen_rect.h = video->height * scale;
 }
 
-void main(int argc, char *argv[]) {
+SDL_AudioDeviceID init_audio(RVF_Audio *audio) {
+    int samples = audio->buffer_size / audio->channels;
+    if (audio->bit_depth == 16) {
+        samples /= 2;
+    }
+    SDL_AudioSpec spec = {
+        .freq = audio->frequency,
+        .format = audio->bit_depth == 16 ? AUDIO_S16 : AUDIO_U8,
+        .channels = audio->channels,
+        .samples = samples,
+    };
+    SDL_AudioDeviceID dev = SDL_OpenAudioDevice(NULL, 0, &spec, NULL, SDL_AUDIO_ALLOW_SAMPLES_CHANGE);
+    if (dev != 0) {
+        int success = SDL_QueueAudio(dev, audio->buffer, audio->buffer_size);
+        if (success != 0) {
+            return 0;
+        }
+    }
+    return dev;
+}
+
+#ifdef NOCONSOLE
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine, int nCmdShow) {
+    if (strlen(lpCmdLine) == 0) {
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "No file", NULL);
+    }
+    const char *filename = lpCmdLine;
+#else
+int main(int argc, char *argv[]) {
     if (argc < 2) {
         printf("Use player <filename>");
-        return;
+        return 0;
     }
+    const char *filename = argv[1];
+#endif
 
-    video = rvf_open(argv[1]);
+    video = rvf_open(filename);
     if (video == NULL) {
-        return;
+        return 0;
     }
 
     printf("colors: %d\nframe size: %dx%d\nframes total:%d\nfps: %f\n",
@@ -135,7 +166,12 @@ void main(int argc, char *argv[]) {
     screen_width = video->width;
     screen_height = video->height;
 
-    SDL_Init(SDL_INIT_VIDEO);
+    Uint32 init_flags = SDL_INIT_VIDEO;
+    if (video->audio) {
+        init_flags |= SDL_INIT_AUDIO;
+    }
+
+    SDL_Init(init_flags);
     window = SDL_CreateWindow("RVF", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, screen_width, screen_height, SDL_WINDOW_RESIZABLE);
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     screen = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, video->width, video->height);
@@ -147,6 +183,12 @@ void main(int argc, char *argv[]) {
     screen_rect.w = screen_width;
     screen_rect.h = screen_height;
 
+    SDL_AudioDeviceID audio_dev = 0;
+    if (video->audio) {
+        audio_dev = init_audio(video->audio);
+        rvf_free_audio_buffer(video);
+    }
+
     SDL_Event event;
     int working = 1;
 
@@ -155,6 +197,10 @@ void main(int argc, char *argv[]) {
         working = 0;
     }
     convert_frame(data, video->width, video->height);
+
+    if (audio_dev > 0) {
+        SDL_PauseAudioDevice(audio_dev, 0);
+    }
 
     float elapsed = 0;
     float freq = SDL_GetPerformanceFrequency();
@@ -225,9 +271,10 @@ void main(int argc, char *argv[]) {
 
         SDL_Delay(5);
     }
-
+    SDL_CloseAudioDevice(audio_dev);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
     rvf_close(&video);
+    return 0;
 }

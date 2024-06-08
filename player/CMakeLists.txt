@@ -16,6 +16,12 @@ add_executable(player
 
 find_package(SDL2 REQUIRED)
 
+if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set_property(TARGET player PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded")
+    target_link_options(player PRIVATE -SUBSYSTEM:WINDOWS)
+    target_compile_definitions(player PRIVATE "NOCONSOLE=1>")
+endif()
+
 target_include_directories(player
     PUBLIC
         ${SDL2_INCLUDE_DIR}    
