@@ -3,6 +3,8 @@
 
 #define COMPRESSION_NONE 0b00000000
 #define COMPRESSION_FULL 0b00000001
+#define AUDIO_BLOCK 0b00000010
+#define AUDIO_STREAM 0b00000100
 #define FRAME_REGULAR 0b00000000
 #define FRAME_IS_KEYFRAME 0b00000001
 #define FRAME_IS_FIRST 0b00000010
@@ -23,7 +25,7 @@ RVF_File* rvf_open(const char* filename) {
     }
     uint8_t version = 0;
     fread(&version, 1, 1, result->file);
-    if (version != 2) {
+    if (version != 3) {
         printf("Wrong file format version.");
         free(result);
         return NULL;
@@ -42,12 +44,33 @@ RVF_File* rvf_open(const char* filename) {
     result->frame_time = frame_time;
     result->is_compressed = (flags & COMPRESSION_FULL) > 0;
 
+    if (flags & AUDIO_BLOCK || flags & AUDIO_STREAM) {
+        uint32_t frequency, buffer_size;
+        uint8_t channels, quality;
+        fread(&channels, 1, 1, result->file);
+        fread(&frequency, 4, 1, result->file);
+        fread(&quality, 1, 1, result->file);
+
+        result->audio = malloc(sizeof(RVF_Audio));
+        result->audio->channels = channels;
+        result->audio->frequency = frequency;
+        result->audio->bit_depth = quality ? 16 : 8;
+    }
+
     uint8_t color_count;
     fread(&color_count, 1, 1, result->file);
     result->colors = (int)color_count + 1;
 
     result->palette = calloc(result->colors, sizeof(RVF_Color));
     fread(result->palette, sizeof(RVF_Color), result->colors, result->file);
+
+    if (flags & AUDIO_BLOCK) {
+        uint32_t buffer_size;
+        fread(&buffer_size, 4, 1, result->file);
+        result->audio->buffer_size = buffer_size;
+        result->audio->buffer = malloc(buffer_size);
+        fread(result->audio->buffer, buffer_size, 1, result->file);
+    }
 
     result->frames_offset = ftell(result->file);
     result->current_frame = -1;
@@ -90,4 +113,10 @@ uint8_t* rvf_next_frame(RVF_File* file) {
 
 void rvf_debug(int enabled) {
     debug = enabled;
+}
+
+void rvf_free_audio_buffer(RVF_File* file) {
+    if (file->audio) {
+        free(file->audio->buffer);
+    }
 }
