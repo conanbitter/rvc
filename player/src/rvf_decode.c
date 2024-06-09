@@ -44,6 +44,7 @@ RVF_File* rvf_open(const char* filename) {
     result->frame_time = frame_time;
     result->is_compressed = (flags & COMPRESSION_FULL) > 0;
 
+    result->audio = NULL;
     if (flags & AUDIO_BLOCK || flags & AUDIO_STREAM) {
         uint32_t frequency, buffer_size;
         uint8_t channels, quality;
