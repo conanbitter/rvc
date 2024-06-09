@@ -281,7 +281,7 @@ func Encode(filename string, palette Palette, files []string, frameRate float32,
 	bh := int(math.Ceil(float64(height) / 4))
 
 	curve := GetHilbertCurve(bw, bh)
-	encoder := NewEncoder(palette, treshold)
+	encoder := NewEncoder(palette, palComp, treshold)
 
 	totalSize := uint64(0)
 

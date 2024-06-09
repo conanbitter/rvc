@@ -55,6 +55,7 @@ type FrameEncoder struct {
 	palcache  [3]*PaletteCache
 	treshold  float64
 	stats     map[byte]uint
+	pc        *PalComp
 }
 
 type Chooser func(input *ImageBlock, prev *ImageBlock, index int, encoder *FrameEncoder) *EncodeSuggestion
@@ -122,10 +123,11 @@ func BlocksToImage(blocks []ImageBlock, blockWidth int, blockHeight int) ([]int,
 	return result, width, height
 }
 
-func CompareBlocks(a *ImageBlock, b *ImageBlock, pal Palette) float64 {
+func CompareBlocks(a *ImageBlock, b *ImageBlock, pal Palette, pc *PalComp) float64 {
 	var acc float64 = 0.0
 	for i, col := range a {
-		acc += pal[col].ToFloatColor().Difference(pal[b[i]].ToFloatColor())
+		//acc += pal[col].ToFloatColor().Difference(pal[b[i]].ToFloatColor())
+		acc += pc.CompareColors(col, b[i])
 	}
 	return acc
 }
@@ -165,7 +167,7 @@ func (palcache *PaletteCache) GetPals() [][]int {
 
 //region ENCODER
 
-func NewEncoder(pal Palette, treshold float64) *FrameEncoder {
+func NewEncoder(pal Palette, pc *PalComp, treshold float64) *FrameEncoder {
 	return &FrameEncoder{
 		chain:     make([]EncodedBlock, 0),
 		pal:       pal,
@@ -173,6 +175,7 @@ func NewEncoder(pal Palette, treshold float64) *FrameEncoder {
 		palcache:  [3]*PaletteCache{NewPaletteCache(), NewPaletteCache(), NewPaletteCache()},
 		treshold:  treshold,
 		stats:     make(map[byte]uint),
+		pc:        pc,
 	}
 }
 
@@ -534,7 +537,7 @@ func SuggestSkip(source *ImageBlock, index int, encoder *FrameEncoder, cont bool
 		MetaData:  nil,
 		PixelData: nil,
 		First:     !cont,
-		Score:     CompareBlocks(source, &result, encoder.pal),
+		Score:     CompareBlocks(source, &result, encoder.pal, encoder.pc),
 		Result:    &result,
 	}
 }
@@ -558,7 +561,7 @@ func SuggestRepeat(source *ImageBlock, last *ImageBlock, encoder *FrameEncoder, 
 		MetaData:  nil,
 		PixelData: nil,
 		First:     !cont,
-		Score:     CompareBlocks(source, last, encoder.pal),
+		Score:     CompareBlocks(source, last, encoder.pal, encoder.pc),
 		Result:    last,
 	}
 }
@@ -567,10 +570,11 @@ func SuggestSolid(source *ImageBlock, encoder *FrameEncoder) *EncodeSuggestion {
 	color := -1
 	score := math.MaxFloat64
 
-	for i, palcolor := range encoder.pal {
+	for i /*, palcolor*/ := range encoder.pal {
 		var scoreacc float64 = 0
 		for _, pixel := range source {
-			scoreacc += palcolor.ToFloatColor().Difference(encoder.pal[pixel].ToFloatColor())
+			//scoreacc += palcolor.ToFloatColor().Difference(encoder.pal[pixel].ToFloatColor())
+			scoreacc += encoder.pc.CompareColors(i, pixel)
 		}
 		if scoreacc < score {
 			color = i
@@ -596,11 +600,12 @@ func SuggestSolid(source *ImageBlock, encoder *FrameEncoder) *EncodeSuggestion {
 
 func SuggestSolidCont(source *ImageBlock, encoder *FrameEncoder) *EncodeSuggestion {
 	colorInd := encoder.GetLastSuggestion().MetaData[0]
-	color := encoder.pal[colorInd]
+	//color := encoder.pal[colorInd]
 	var score float64 = 0
 
 	for _, pixel := range source {
-		score += color.ToFloatColor().Difference(encoder.pal[pixel].ToFloatColor())
+		score += encoder.pc.CompareColors(colorInd, pixel)
+		//score += color.ToFloatColor().Difference(encoder.pal[pixel].ToFloatColor())
 	}
 
 	resultBlock := &ImageBlock{}
@@ -620,11 +625,12 @@ func SuggestSolidCont(source *ImageBlock, encoder *FrameEncoder) *EncodeSuggesti
 	return result
 }
 
-func getSubColor(source int, pal Palette, subpal []int) int {
+func getSubColor(source int, pal Palette, pc *PalComp, subpal []int) int {
 	best := math.MaxFloat64
 	result := 0
 	for i, index := range subpal {
-		dist := pal[source].ToFloatColor().Difference(pal[index].ToFloatColor())
+		dist := pc.CompareColors(source, index)
+		//dist := pal[source].ToFloatColor().Difference(pal[index].ToFloatColor())
 		if dist < best {
 			result = i
 			best = dist
@@ -633,12 +639,12 @@ func getSubColor(source int, pal Palette, subpal []int) int {
 	return result
 }
 
-func applySubpal(source *ImageBlock, pal Palette, subpal []int) (data *ImageBlock, result *ImageBlock) {
+func applySubpal(source *ImageBlock, pal Palette, pc *PalComp, subpal []int) (data *ImageBlock, result *ImageBlock) {
 	data = &ImageBlock{}
 	result = &ImageBlock{}
 
 	for i, color := range source {
-		newColor := getSubColor(color, pal, subpal)
+		newColor := getSubColor(color, pal, pc, subpal)
 		data[i] = newColor
 		result[i] = subpal[newColor]
 	}
@@ -668,8 +674,8 @@ func encodingToColors(encoding byte) (colors int, cache int) {
 func SuggestSubColor(source *ImageBlock, encoder *FrameEncoder, encoding byte) *EncodeSuggestion {
 	colorNum, _ := encodingToColors(encoding)
 	data := calcSubpal(source, encoder.pal, colorNum)
-	pixels, resultBlock := applySubpal(source, encoder.pal, data)
-	score := CompareBlocks(source, resultBlock, encoder.pal)
+	pixels, resultBlock := applySubpal(source, encoder.pal, encoder.pc, data)
+	score := CompareBlocks(source, resultBlock, encoder.pal, encoder.pc)
 
 	result := &EncodeSuggestion{
 		Encoding:  encoding,
@@ -692,8 +698,8 @@ func SuggestSubColorCont(source *ImageBlock, encoder *FrameEncoder) *EncodeSugge
 		_, cacheind := encodingToColors(encoding)
 		subpal = encoder.palcache[cacheind].Pals[encoder.GetLastSuggestion().MetaData[0]]
 	}
-	pixels, resultBlock := applySubpal(source, encoder.pal, subpal)
-	score := CompareBlocks(source, resultBlock, encoder.pal)
+	pixels, resultBlock := applySubpal(source, encoder.pal, encoder.pc, subpal)
+	score := CompareBlocks(source, resultBlock, encoder.pal, encoder.pc)
 
 	result := &EncodeSuggestion{
 		Encoding:  encoding,
@@ -714,8 +720,8 @@ func SuggestSubColorCache(source *ImageBlock, encoder *FrameEncoder, encoding by
 	var bestPixels *ImageBlock
 	var bestResult *ImageBlock
 	for i, subpal := range encoder.palcache[cacheInd].GetPals() {
-		pixels, resultBlock := applySubpal(source, encoder.pal, subpal)
-		score := CompareBlocks(source, resultBlock, encoder.pal)
+		pixels, resultBlock := applySubpal(source, encoder.pal, encoder.pc, subpal)
+		score := CompareBlocks(source, resultBlock, encoder.pal, encoder.pc)
 		if score < minscore {
 			minscore = score
 			bestIndex = i
