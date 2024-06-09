@@ -249,6 +249,30 @@ func RawEncode(filename string, palette Palette, files []string, frameRate float
 	bar.Finish()
 }
 
+func mtLoadImages(files []string, width int, height int, imchan chan []IntColor) {
+	for _, file := range files {
+		imageColorData, fwidth, fheight, err := ImageLoad(file)
+		if err != nil {
+			panic(err)
+		}
+		if fwidth != width || fheight != height {
+			panic(fmt.Errorf("frame size incorrect (%dx%d  must be %dx%d)", fwidth, fheight, width, height))
+		}
+		imchan <- imageColorData
+	}
+	close(imchan)
+}
+
+func mtDitherImages(dithering DitheringMethod, pal Palette, width int, height int, curve []int, imchan chan []IntColor, blchan chan []ImageBlock) {
+	for imageColorData := range imchan {
+		imageIndexData := dithering.Process(imageColorData, pal)
+		blocks, _, _ := ImageToBlocks(imageIndexData, width, height)
+		hblocks := ApplyCurve(blocks, curve)
+		blchan <- hblocks
+	}
+	close(blchan)
+}
+
 func Encode(filename string, palette Palette, files []string, frameRate float32, dithering DitheringMethod, treshold float64, audio *WAVfile) {
 	if len(files) == 0 {
 		return
@@ -285,24 +309,21 @@ func Encode(filename string, palette Palette, files []string, frameRate float32,
 
 	totalSize := uint64(0)
 
-	for i, file := range files {
-		imageColorData, fwidth, fheight, err := ImageLoad(file)
-		if err != nil {
-			panic(err)
-		}
-		if fwidth != width || fheight != height {
-			panic(fmt.Errorf("frame size incorrect (%dx%d  must be %dx%d)", fwidth, fheight, width, height))
-		}
-		imageIndexData := dithering.Process(imageColorData, palette)
-		blocks, _, _ := ImageToBlocks(imageIndexData, fwidth, fheight)
-		hblocks := ApplyCurve(blocks, curve)
+	imchan := make(chan []IntColor, len(files))
+	blchan := make(chan []ImageBlock, len(files))
+
+	go mtLoadImages(files, width, height, imchan)
+	go mtDitherImages(dithering, palette, width, height, curve, imchan, blchan)
+
+	ind := 0
+	for hblocks := range blchan {
 		encoder.Encode(hblocks)
 		packdata := encoder.Pack()
 		flags := FrameRegular
-		if i == 0 {
+		if ind == 0 {
 			flags |= FrameIsFirst
 		}
-		if i == len(files)-1 {
+		if ind == len(files)-1 {
 			flags |= FrameIsLast
 		}
 		if encoder.IsClean() {
@@ -311,7 +332,8 @@ func Encode(filename string, palette Palette, files []string, frameRate float32,
 		rvf.WriteCompressed(packdata, flags)
 		totalSize += uint64(len(packdata))
 
-		bar.Set(i + 1)
+		bar.Set(ind + 1)
+		ind++
 	}
 
 	compression := float64(totalSize) / float64(width*height*len(files)) * 100
