@@ -3,8 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"math"
 	"os"
+	"runtime"
+	"runtime/pprof"
 	"strings"
 
 	"github.com/schollz/progressbar/v3"
@@ -54,6 +57,16 @@ func main() {
 		fmt.Println("Usage: rvc <command> <arguments> <input>")
 		return
 	}
+
+	fc, err := os.Create("cpuprof")
+	if err != nil {
+		log.Fatal("could not create CPU profile: ", err)
+	}
+	defer fc.Close() // error handling omitted for example
+	if err := pprof.StartCPUProfile(fc); err != nil {
+		log.Fatal("could not start CPU profile: ", err)
+	}
+	defer pprof.StopCPUProfile()
 
 	command := os.Args[1]
 
@@ -183,6 +196,17 @@ func main() {
 	default:
 		fmt.Printf("Unknown command \"%s\"\n", command)
 	}
+
+	fm, err := os.Create("memprof")
+	if err != nil {
+		log.Fatal("could not create memory profile: ", err)
+	}
+	defer fm.Close() // error handling omitted for example
+	runtime.GC()     // get up-to-date statistics
+	if err := pprof.WriteHeapProfile(fm); err != nil {
+		log.Fatal("could not write memory profile: ", err)
+	}
+
 }
 
 func RawEncode(filename string, palette Palette, files []string, frameRate float32, dithering DitheringMethod, audio *WAVfile) {

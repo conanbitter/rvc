@@ -4,5 +4,6 @@ build
 encoder/SDL2.dll
 encoder/rvc.exe
 encoder/*.bat
+encoder/profiling
 player/cmake
 player/bin
