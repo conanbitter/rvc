@@ -65,8 +65,10 @@ func NewRVFfile(filename string, palette Palette, width int, height int, frames 
 	}
 
 	//Audio block
-	write(result.file, uint32(len(audio.Data)))
-	result.file.Write(audio.Data)
+	if audio != nil {
+		write(result.file, uint32(len(audio.Data)))
+		result.file.Write(audio.Data)
+	}
 
 	return result
 }
