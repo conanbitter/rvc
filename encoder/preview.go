@@ -66,7 +66,9 @@ func (v *Viewer) LoadImage(index int) {
 		panic(err)
 	}
 
-	v.dithering.Init(v.pal, width, height)
+	palComp := NewPalComp(v.pal)
+
+	v.dithering.Init(v.pal, palComp, width, height)
 
 	imageIndexData := v.dithering.Process(imageColorData, v.pal)
 

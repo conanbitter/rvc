@@ -58,7 +58,7 @@ func main() {
 		return
 	}
 
-	fc, err := os.Create("cpuprof")
+	fc, err := os.Create("profiling/cpuprof.profile")
 	if err != nil {
 		log.Fatal("could not create CPU profile: ", err)
 	}
@@ -197,7 +197,7 @@ func main() {
 		fmt.Printf("Unknown command \"%s\"\n", command)
 	}
 
-	fm, err := os.Create("memprof")
+	fm, err := os.Create("profiling/memprof.profile")
 	if err != nil {
 		log.Fatal("could not create memory profile: ", err)
 	}
@@ -224,7 +224,9 @@ func RawEncode(filename string, palette Palette, files []string, frameRate float
 		panic(err)
 	}
 
-	dithering.Init(palette, width, height)
+	palComp := NewPalComp(palette)
+
+	dithering.Init(palette, palComp, width, height)
 
 	rvf := NewRVFfile(filename, palette, width, height, len(files), frameRate, CompressionNone, audio)
 	defer rvf.Close()
@@ -268,7 +270,9 @@ func Encode(filename string, palette Palette, files []string, frameRate float32,
 		panic(err)
 	}
 
-	dithering.Init(palette, width, height)
+	palComp := NewPalComp(palette)
+
+	dithering.Init(palette, palComp, width, height)
 
 	rvf := NewRVFfile(filename, palette, width, height, len(files), frameRate, CompressionFull, audio)
 	defer rvf.Close()

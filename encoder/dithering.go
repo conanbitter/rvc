@@ -7,7 +7,7 @@ import (
 )
 
 type DitheringMethod interface {
-	Init(pal Palette, width int, height int)
+	Init(pal Palette, pc *PalComp, width int, height int)
 	Process(imageData []IntColor, pal Palette) []int
 }
 
@@ -15,7 +15,7 @@ type DitheringMethod interface {
 
 type PosterizeDithering struct{}
 
-func (dither *PosterizeDithering) Init(pal Palette, width int, height int) {}
+func (dither *PosterizeDithering) Init(pal Palette, pc *PalComp, width int, height int) {}
 func (dither *PosterizeDithering) Process(imageData []IntColor, pal Palette) []int {
 	idata := make([]int, len(imageData))
 	for i := range idata {
@@ -40,7 +40,7 @@ type FSDithering struct {
 	height int
 }
 
-func (dither *FSDithering) Init(pal Palette, width int, height int) {
+func (dither *FSDithering) Init(pal Palette, pc *PalComp, width int, height int) {
 	dither.fdata = make([]FloatColor, width*height)
 	dither.width = width
 	dither.height = height
@@ -91,6 +91,7 @@ type PatternDithering struct {
 	workers   int
 	rangeSize int
 	treshold  float64
+	pc        *PalComp
 }
 
 func NewPatternDithering(pattern *Pattern, workers int, treshold float64) *PatternDithering {
@@ -104,12 +105,13 @@ func NewPatternDithering(pattern *Pattern, workers int, treshold float64) *Patte
 	}
 }
 
-func (dither *PatternDithering) Init(pal Palette, width int, height int) {
+func (dither *PatternDithering) Init(pal Palette, pc *PalComp, width int, height int) {
 	dither.width = width
 	dither.height = height
 	dither.pattern = dither.pattern.Reshape(width, height)
 	dither.fdata = make([]FloatColor, width*height)
 	dither.rangeSize = width * height / dither.workers
+	dither.pc = pc
 }
 
 func (dither *PatternDithering) Process(imageData []IntColor, pal Palette) []int {
@@ -130,9 +132,10 @@ func (dither *PatternDithering) Process(imageData []IntColor, pal Palette) []int
 				attempt.R = clipFloat(attempt.R + cerr.R*dither.treshold)
 				attempt.G = clipFloat(attempt.G + cerr.G*dither.treshold)
 				attempt.B = clipFloat(attempt.B + cerr.B*dither.treshold)
-				colorIndex := pal.GetFloatColorIndex(attempt)
+				//colorIndex := pal.GetFloatColorIndex(attempt)
+				colorIndex := dither.pc.GetColorIndex(attempt)
 				candidates[i] = colorIndex
-				candidate := pal[colorIndex].ToFloatColor()
+				candidate := dither.pc.ToFloatColor(colorIndex) //pal[colorIndex].ToFloatColor()
 				cerr.R += wdata[p].R - candidate.R
 				cerr.G += wdata[p].G - candidate.G
 				cerr.B += wdata[p].B - candidate.B
