@@ -309,8 +309,8 @@ func Encode(filename string, palette Palette, files []string, frameRate float32,
 
 	totalSize := uint64(0)
 
-	imchan := make(chan []IntColor, len(files))
-	blchan := make(chan []ImageBlock, len(files))
+	imchan := make(chan []IntColor, 10)   //len(files)
+	blchan := make(chan []ImageBlock, 10) //len(files)
 
 	go mtLoadImages(files, width, height, imchan)
 	go mtDitherImages(dithering, palette, width, height, curve, imchan, blchan)
