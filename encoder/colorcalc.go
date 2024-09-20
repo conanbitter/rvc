@@ -63,6 +63,8 @@ func (cc *ColorCalc) Input(images []string) {
 	bar := progressbar.NewOptions(len(images),
 		progressbar.OptionFullWidth(),
 		progressbar.OptionShowCount(),
+		progressbar.OptionShowIts(),
+		progressbar.OptionSetItsString("images"),
 		progressbar.OptionUseANSICodes(true))
 
 	bar.Set(0)
