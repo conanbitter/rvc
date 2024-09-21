@@ -50,8 +50,9 @@ func main() {
 		EncBlockTest3("06", useHilbert, nil)
 		enc := EncBlockTest3("10", useHilbert, nil)
 		EncBlockTest3("11", useHilbert, enc)
-		EncBlockTest3("12", useHilbert, enc)
-		os.Exit(0)*/
+		EncBlockTest3("12", useHilbert, enc)*/
+	getMotion(2)
+	os.Exit(0)
 
 	if len(os.Args) <= 1 {
 		fmt.Println("Usage: rvc <command> <arguments> <input>")
