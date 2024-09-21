@@ -291,6 +291,7 @@ func getMotion(i int) {
 		panic(err)
 	}*/
 	resImage := make([]int, len(image1))
+	moved := 0
 	for r := 0; r < rh; r++ {
 		fmt.Printf("\r draw r:%d/%d", r, rh)
 		for c := 0; c < rw; c++ {
@@ -300,12 +301,13 @@ func getMotion(i int) {
 			//fmt.Printf("= cx=%d cy=%d dx=%d dy=%d id=%d is=%d\n", cx, cy, offset.X, offset.Y, cx+7+(cy+7)*width, cx+7+offset.X+(cy+7+offset.Y)*width)
 			if offset.Error < 0.1 {
 				copyRect(image1, cx+offset.X, cy+offset.Y, resImage, cx, cy, width, height)
+				moved++
 			} else {
 				copyRect(image2, cx, cy, resImage, cx, cy, width, height)
 			}
 		}
 	}
-	fmt.Println()
+	fmt.Printf("  Moved: %d%%\n", int(math.Round(float64(moved)/float64(rw*rh)*100.0)))
 	ImageSave(fmt.Sprintf("../data/motion/test%d_res1.png", i), image2, width, height, pal)
 	ImageSave(fmt.Sprintf("../data/motion/test%d_res2.png", i), resImage, width, height, pal)
 }
