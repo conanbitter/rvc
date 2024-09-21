@@ -51,7 +51,11 @@ func main() {
 		enc := EncBlockTest3("10", useHilbert, nil)
 		EncBlockTest3("11", useHilbert, enc)
 		EncBlockTest3("12", useHilbert, enc)*/
-	getMotion(2)
+	//getMotion(2)
+	for i := 1; i <= 8; i++ {
+		fmt.Printf("image %d\n", i)
+		getMotion(i)
+	}
 	os.Exit(0)
 
 	if len(os.Args) <= 1 {

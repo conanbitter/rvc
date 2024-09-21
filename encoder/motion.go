@@ -1,10 +1,8 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"math"
-	"os"
 )
 
 type Offset struct {
@@ -225,6 +223,17 @@ func compareRect(im1 []int, x1 int, y1 int, im2 []int, x2 int, y2 int, width int
 	return acc / 4.0
 }
 
+func copyRect(src []int, x1 int, y1 int, dst []int, x2 int, y2 int, width int, height int) {
+	for y := 0; y < 8; y++ {
+		for x := 0; x < 8; x++ {
+			if x2+x < 0 || x2+x >= width || y2+y < 0 || y2+y >= height {
+				continue
+			}
+			dst[x2+x+width*(y2+y)] = src[x1+x+width*(y1+y)]
+		}
+	}
+}
+
 func getMotion(i int) {
 	pal := PaletteLoad(fmt.Sprintf("../data/motion/test%d.pal", i))
 	imageColorData1, _, _, err := ImageLoad(fmt.Sprintf("../data/motion/test%d_1.png", i))
@@ -254,7 +263,7 @@ func getMotion(i int) {
 	}
 
 	for r := 0; r < rh; r++ {
-		fmt.Printf("r:%d/%d\n", r, rh)
+		fmt.Printf("\r calc r:%d/%d", r, rh)
 		for c := 0; c < rw; c++ {
 			bestScore := math.MaxFloat64
 			bestOffset := Offset{0, 0}
@@ -269,7 +278,7 @@ func getMotion(i int) {
 		}
 	}
 
-	file, err := os.Create(fmt.Sprintf("../data/motion/test%d.json", i))
+	/*file, err := os.Create(fmt.Sprintf("../data/motion/test%d.json", i))
 	if err != nil {
 		panic(err)
 	}
@@ -280,5 +289,23 @@ func getMotion(i int) {
 	}
 	if _, err = file.Write(data); err != nil {
 		panic(err)
+	}*/
+	resImage := make([]int, len(image1))
+	for r := 0; r < rh; r++ {
+		fmt.Printf("\r draw r:%d/%d", r, rh)
+		for c := 0; c < rw; c++ {
+			offset := result.Vectors[c+r*rw]
+			cx := c * 8
+			cy := r * 8
+			//fmt.Printf("= cx=%d cy=%d dx=%d dy=%d id=%d is=%d\n", cx, cy, offset.X, offset.Y, cx+7+(cy+7)*width, cx+7+offset.X+(cy+7+offset.Y)*width)
+			if offset.Error < 0.1 {
+				copyRect(image1, cx+offset.X, cy+offset.Y, resImage, cx, cy, width, height)
+			} else {
+				copyRect(image2, cx, cy, resImage, cx, cy, width, height)
+			}
+		}
 	}
+	fmt.Println()
+	ImageSave(fmt.Sprintf("../data/motion/test%d_res1.png", i), image2, width, height, pal)
+	ImageSave(fmt.Sprintf("../data/motion/test%d_res2.png", i), resImage, width, height, pal)
 }
