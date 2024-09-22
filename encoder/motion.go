@@ -183,12 +183,12 @@ var offsets = []Offset{
 }
 
 type Result struct {
-	Cols    int         `json:"cols"`
-	Rows    int         `json:"rows"`
-	Vectors []BlockData `json:"vectors"`
+	Cols    int            `json:"cols"`
+	Rows    int            `json:"rows"`
+	Vectors []MotionVector `json:"vectors"`
 }
 
-type BlockData struct {
+type MotionVector struct {
 	X     int     `json:"x"`
 	Y     int     `json:"y"`
 	Error float64 `json:"err"`
@@ -259,7 +259,7 @@ func getMotion(i int) {
 	result := Result{
 		Rows:    rh,
 		Cols:    rw,
-		Vectors: make([]BlockData, 0),
+		Vectors: make([]MotionVector, 0),
 	}
 
 	for r := 0; r < rh; r++ {
@@ -274,7 +274,7 @@ func getMotion(i int) {
 					bestOffset = offset
 				}
 			}
-			result.Vectors = append(result.Vectors, BlockData{Error: bestScore, X: bestOffset.X, Y: bestOffset.Y})
+			result.Vectors = append(result.Vectors, MotionVector{Error: bestScore, X: bestOffset.X, Y: bestOffset.Y})
 		}
 	}
 

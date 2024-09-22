@@ -268,14 +268,28 @@ func mtLoadImages(files []string, width int, height int, imchan chan []IntColor)
 	close(imchan)
 }
 
-func mtDitherImages(dithering DitheringMethod, pal Palette, width int, height int, curve []int, imchan chan []IntColor, blchan chan []ImageBlock) {
+func mtDitherImages(dithering DitheringMethod, pal Palette, imchan chan []IntColor, imindchan chan []int) {
 	for imageColorData := range imchan {
 		imageIndexData := dithering.Process(imageColorData, pal)
+		imindchan <- imageIndexData
+	}
+	close(imindchan)
+}
+
+type EncodingInput struct {
+	Blocks  []ImageBlock
+	Vectors []MotionVector
+}
+
+func mtBlocksAndMotion(width int, height int, curve []int, imindchan chan []int, encchan chan EncodingInput) {
+	for imageIndexData := range imindchan {
 		blocks, _, _ := ImageToBlocks(imageIndexData, width, height)
 		hblocks := ApplyCurve(blocks, curve)
-		blchan <- hblocks
+		encchan <- EncodingInput{
+			Blocks: hblocks,
+		}
 	}
-	close(blchan)
+	close(encchan)
 }
 
 func Encode(filename string, palette Palette, files []string, frameRate float32, dithering DitheringMethod, treshold float64, audio *WAVfile) {
@@ -314,15 +328,17 @@ func Encode(filename string, palette Palette, files []string, frameRate float32,
 
 	totalSize := uint64(0)
 
-	imchan := make(chan []IntColor, 10)   //len(files)
-	blchan := make(chan []ImageBlock, 10) //len(files)
+	imchan := make(chan []IntColor, 10)
+	imindchan := make(chan []int, 10)
+	encchan := make(chan EncodingInput, 10)
 
 	go mtLoadImages(files, width, height, imchan)
-	go mtDitherImages(dithering, palette, width, height, curve, imchan, blchan)
+	go mtDitherImages(dithering, palette, imchan, imindchan)
+	go mtBlocksAndMotion(width, height, curve, imindchan, encchan)
 
 	ind := 0
-	for hblocks := range blchan {
-		encoder.Encode(hblocks)
+	for hblocks := range encchan {
+		encoder.Encode(hblocks.Blocks)
 		packdata := encoder.Pack()
 		flags := FrameRegular
 		if ind == 0 {

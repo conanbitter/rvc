@@ -8,22 +8,22 @@ import (
 type ImageBlock [16]int
 
 const (
-	ENC_SKIP           byte = 0x00
-	ENC_SKIP_LONG      byte = 0x10
-	ENC_REPEAT         byte = 0x20
-	ENC_REPEAT_LONG    byte = 0x30
-	ENC_SOLID          byte = 0x40
-	ENC_SOLID_LONG     byte = 0x50
-	ENC_SOLID_SEP      byte = 0x60
-	ENC_SOLID_SEP_LONG byte = 0x70
-	ENC_PAL2           byte = 0x80
-	ENC_PAL2_CACHE     byte = 0x90
-	ENC_PAL4           byte = 0xA0
-	ENC_PAL4_CACHE     byte = 0xB0
-	ENC_PAL8           byte = 0xC0
-	ENC_PAL8_CACHE     byte = 0xD0
-	ENC_RAW            byte = 0xE0
-	ENC_RAW_LONG       byte = 0xF0
+	ENC_SKIP        byte = 0x00
+	ENC_SKIP_LONG   byte = 0x10
+	ENC_REPEAT      byte = 0x20
+	ENC_REPEAT_LONG byte = 0x30
+	ENC_SOLID       byte = 0x40
+	ENC_SOLID_LONG  byte = 0x50
+	ENC_MOTION      byte = 0x60
+	ENC_MOTION_LONG byte = 0x70
+	ENC_PAL2        byte = 0x80
+	ENC_PAL2_CACHE  byte = 0x90
+	ENC_PAL4        byte = 0xA0
+	ENC_PAL4_CACHE  byte = 0xB0
+	ENC_PAL8        byte = 0xC0
+	ENC_PAL8_CACHE  byte = 0xD0
+	ENC_RAW         byte = 0xE0
+	ENC_RAW_LONG    byte = 0xF0
 )
 
 type EncodedBlock struct {
@@ -276,7 +276,7 @@ func (encoder *FrameEncoder) DebugDecode() []int {
 			col = 1
 		case ENC_SOLID, ENC_SOLID_LONG:
 			col = 2
-		case ENC_SOLID_SEP, ENC_SOLID_SEP_LONG:
+		case ENC_MOTION, ENC_MOTION_LONG:
 			col = 3
 		case ENC_PAL2:
 			col = 4
@@ -380,22 +380,14 @@ func (encoder *FrameEncoder) GetFrameSize() int {
 			}
 		case ENC_REPEAT_LONG:
 			result += 2
-		case ENC_SOLID:
+		case ENC_SOLID, ENC_MOTION:
 			if enc.Count <= ShortSize {
 				result += 2
 			} else {
 				result += 3
 			}
-		case ENC_SOLID_LONG:
+		case ENC_SOLID_LONG, ENC_MOTION_LONG:
 			result += 3
-		case ENC_SOLID_SEP:
-			if enc.Count <= ShortSize {
-				result += 1 + enc.Count
-			} else {
-				result += 2 + enc.Count
-			}
-		case ENC_SOLID_SEP_LONG:
-			result += 2 + enc.Count
 		case ENC_PAL2:
 			result += 1 + 2 + enc.Count*2
 		case ENC_PAL2_CACHE:
