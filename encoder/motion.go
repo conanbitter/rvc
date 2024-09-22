@@ -180,6 +180,62 @@ var offsets = []Offset{
 	{-6, -3},
 	{-6, -4},
 	{-6, -5},
+	{-7, -7},
+	{-6, -7},
+	{-5, -7},
+	{-4, -7},
+	{-3, -7},
+	{-2, -7},
+	{-1, -7},
+	{0, -7},
+	{1, -7},
+	{2, -7},
+	{3, -7},
+	{4, -7},
+	{5, -7},
+	{6, -7},
+	{7, -7},
+	{7, -6},
+	{7, -5},
+	{7, -4},
+	{7, -3},
+	{7, -2},
+	{7, -1},
+	{7, 0},
+	{7, 1},
+	{7, 2},
+	{7, 3},
+	{7, 4},
+	{7, 5},
+	{7, 6},
+	{7, 7},
+	{6, 7},
+	{5, 7},
+	{4, 7},
+	{3, 7},
+	{2, 7},
+	{1, 7},
+	{0, 7},
+	{-1, 7},
+	{-2, 7},
+	{-3, 7},
+	{-4, 7},
+	{-5, 7},
+	{-6, 7},
+	{-7, 7},
+	{-7, 6},
+	{-7, 5},
+	{-7, 4},
+	{-7, 3},
+	{-7, 2},
+	{-7, 1},
+	{-7, 0},
+	{-7, -1},
+	{-7, -2},
+	{-7, -3},
+	{-7, -4},
+	{-7, -5},
+	{-7, -6},
 }
 
 type Result struct {
@@ -310,4 +366,77 @@ func getMotion(i int) {
 	fmt.Printf("  Moved: %d%%\n", int(math.Round(float64(moved)/float64(rw*rh)*100.0)))
 	ImageSave(fmt.Sprintf("../data/motion/test%d_res1.png", i), image2, width, height, pal)
 	ImageSave(fmt.Sprintf("../data/motion/test%d_res2.png", i), resImage, width, height, pal)
+}
+
+func compareBlock(block ImageBlock, image []int, x int, y int, width int, height int, comp *PalComp) float64 {
+	if x < 0 || x+4 >= width || y < 0 || y+4 >= height {
+		return math.MaxFloat64
+	}
+	acc := float64(0)
+	for iy := 0; iy < 4; iy++ {
+		for ix := 0; ix < 4; ix++ {
+			blockIndex := ix + 4*iy
+			mx := ix + x
+			my := iy + y
+			if mx < 0 {
+				mx = 0
+			}
+			if mx >= width {
+				mx = width - 1
+			}
+			if my < 0 {
+				my = 0
+			}
+			if my >= height {
+				my = height - 1
+			}
+			imageIndex := mx + width*(my)
+			acc += comp.CompareColors(block[blockIndex], image[imageIndex])
+		}
+	}
+	return acc
+}
+
+func findBestOffset(block ImageBlock, bx int, by int, image []int, width int, height int, comp *PalComp) MotionVector {
+	bestScore := math.MaxFloat64
+	bestOffset := Offset{0, 0}
+	for _, offset := range offsets {
+		score := compareBlock(block, image, bx*4+offset.X, by*4+offset.Y, width, height, comp)
+		if score < bestScore {
+			bestScore = score
+			bestOffset = offset
+		}
+	}
+	return MotionVector{
+		X:     bestOffset.X,
+		Y:     bestOffset.Y,
+		Error: bestScore,
+	}
+}
+
+func CalculateMotionVectors(imageBlocks []ImageBlock, bw int, bh int, image []int, width int, height int, comp *PalComp) []MotionVector {
+	result := make([]MotionVector, len(imageBlocks))
+
+	if image == nil {
+		for i := range result {
+			result[i].Error = math.MaxFloat64
+		}
+		return result
+	}
+
+	for by := 0; by < bh; by++ {
+		for bx := 0; bx < bw; bx++ {
+			index := bx + by*bw
+			result[index] = findBestOffset(imageBlocks[index], bx, by, image, width, height, comp)
+		}
+	}
+	return result
+}
+
+func ApplyCurveMotion(vectors []MotionVector, curve []int) []MotionVector {
+	result := make([]MotionVector, len(vectors))
+	for i, n := range curve {
+		result[i] = vectors[n]
+	}
+	return result
 }

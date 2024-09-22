@@ -281,12 +281,17 @@ type EncodingInput struct {
 	Vectors []MotionVector
 }
 
-func mtBlocksAndMotion(width int, height int, curve []int, imindchan chan []int, encchan chan EncodingInput) {
+func mtBlocksAndMotion(width int, height int, curve []int, comp *PalComp, imindchan chan []int, encchan chan EncodingInput) {
+	var lastImage []int = nil
 	for imageIndexData := range imindchan {
-		blocks, _, _ := ImageToBlocks(imageIndexData, width, height)
+		blocks, bw, bh := ImageToBlocks(imageIndexData, width, height)
+		vectors := CalculateMotionVectors(blocks, bw, bh, lastImage, width, height, comp)
+		hvectors := ApplyCurveMotion(vectors, curve)
 		hblocks := ApplyCurve(blocks, curve)
+		lastImage = imageIndexData
 		encchan <- EncodingInput{
-			Blocks: hblocks,
+			Blocks:  hblocks,
+			Vectors: hvectors,
 		}
 	}
 	close(encchan)
@@ -334,7 +339,7 @@ func Encode(filename string, palette Palette, files []string, frameRate float32,
 
 	go mtLoadImages(files, width, height, imchan)
 	go mtDitherImages(dithering, palette, imchan, imindchan)
-	go mtBlocksAndMotion(width, height, curve, imindchan, encchan)
+	go mtBlocksAndMotion(width, height, curve, palComp, imindchan, encchan)
 
 	ind := 0
 	for hblocks := range encchan {
