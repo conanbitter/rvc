@@ -56,6 +56,7 @@ type FrameEncoder struct {
 	palcache     [3]*PaletteCache
 	treshold     float64
 	stats        map[byte]uint
+	stat_firsts  map[byte]uint
 	pc           *PalComp
 
 	frameWidth   int
@@ -177,13 +178,14 @@ func (palcache *PaletteCache) GetPals() [][]int {
 
 func NewEncoder(pal Palette, pc *PalComp, treshold float64, width int, height int, bw int, bh int, curve []int) *FrameEncoder {
 	return &FrameEncoder{
-		chain:     make([]EncodedBlock, 0),
-		pal:       pal,
-		lastFrame: nil,
-		palcache:  [3]*PaletteCache{NewPaletteCache(), NewPaletteCache(), NewPaletteCache()},
-		treshold:  treshold,
-		stats:     make(map[byte]uint),
-		pc:        pc,
+		chain:       make([]EncodedBlock, 0),
+		pal:         pal,
+		lastFrame:   nil,
+		palcache:    [3]*PaletteCache{NewPaletteCache(), NewPaletteCache(), NewPaletteCache()},
+		treshold:    treshold,
+		stats:       make(map[byte]uint),
+		stat_firsts: make(map[byte]uint),
+		pc:          pc,
 
 		frameWidth:   width,
 		frameHeight:  height,
@@ -358,6 +360,9 @@ func (encoder *FrameEncoder) Encode(frame []ImageBlock) {
 		last = *suggestion.Result
 		newLastFrame[i] = *suggestion.Result
 		encoder.stats[suggestion.Encoding] = encoder.stats[suggestion.Encoding] + 1
+		if suggestion.First {
+			encoder.stat_firsts[suggestion.Encoding] = encoder.stat_firsts[suggestion.Encoding] + 1
+		}
 		if suggestion.Encoding == ENC_PAL2 && suggestion.First {
 			encoder.palcache[0].AddPalette(suggestion.MetaData)
 		}
@@ -545,17 +550,18 @@ func (encoder *FrameEncoder) PrintStats() {
 		total += count
 	}
 	ftotal := float64(total)
-	fmt.Printf("  skip:   %2.f %%\n", float64(encoder.stats[ENC_SKIP])/ftotal*100)
-	fmt.Printf("  repeat: %2.f %%\n", float64(encoder.stats[ENC_REPEAT])/ftotal*100)
-	fmt.Printf("  solid:  %2.f %%\n", float64(encoder.stats[ENC_SOLID])/ftotal*100)
-	fmt.Printf("  motion: %2.f %%\n", float64(encoder.stats[ENC_MOTION])/ftotal*100)
-	fmt.Printf("  pal2:   %2.f %%\n", float64(encoder.stats[ENC_PAL2])/ftotal*100)
-	fmt.Printf("  pal2c:  %2.f %%\n", float64(encoder.stats[ENC_PAL2_CACHE])/ftotal*100)
-	fmt.Printf("  pal4:   %2.f %%\n", float64(encoder.stats[ENC_PAL4])/ftotal*100)
-	fmt.Printf("  pal4c:  %2.f %%\n", float64(encoder.stats[ENC_PAL4_CACHE])/ftotal*100)
-	fmt.Printf("  pal8:   %2.f %%\n", float64(encoder.stats[ENC_PAL8])/ftotal*100)
-	fmt.Printf("  pal8c:  %2.f %%\n", float64(encoder.stats[ENC_PAL8_CACHE])/ftotal*100)
-	fmt.Printf("  raw:    %2.f %%\n", float64(encoder.stats[ENC_RAW])/ftotal*100)
+	fmt.Println("  type    | perc | avg.len")
+	fmt.Printf("  skip:   | %2.f %% | %d\n", float64(encoder.stats[ENC_SKIP])/ftotal*100, int(math.Round(float64(encoder.stats[ENC_SKIP])/float64(encoder.stat_firsts[ENC_SKIP]))))
+	fmt.Printf("  repeat: | %2.f %% | %d\n", float64(encoder.stats[ENC_REPEAT])/ftotal*100, int(math.Round(float64(encoder.stats[ENC_REPEAT])/float64(encoder.stat_firsts[ENC_REPEAT]))))
+	fmt.Printf("  solid:  | %2.f %% | %d\n", float64(encoder.stats[ENC_SOLID])/ftotal*100, int(math.Round(float64(encoder.stats[ENC_SOLID])/float64(encoder.stat_firsts[ENC_SOLID]))))
+	fmt.Printf("  motion: | %2.f %% | %d\n", float64(encoder.stats[ENC_MOTION])/ftotal*100, int(math.Round(float64(encoder.stats[ENC_MOTION])/float64(encoder.stat_firsts[ENC_MOTION]))))
+	fmt.Printf("  pal2:   | %2.f %% | %d\n", float64(encoder.stats[ENC_PAL2])/ftotal*100, int(math.Round(float64(encoder.stats[ENC_PAL2])/float64(encoder.stat_firsts[ENC_PAL2]))))
+	fmt.Printf("  pal2c:  | %2.f %% | %d\n", float64(encoder.stats[ENC_PAL2_CACHE])/ftotal*100, int(math.Round(float64(encoder.stats[ENC_PAL2_CACHE])/float64(encoder.stat_firsts[ENC_PAL2_CACHE]))))
+	fmt.Printf("  pal4:   | %2.f %% | %d\n", float64(encoder.stats[ENC_PAL4])/ftotal*100, int(math.Round(float64(encoder.stats[ENC_PAL4])/float64(encoder.stat_firsts[ENC_PAL4]))))
+	fmt.Printf("  pal4c:  | %2.f %% | %d\n", float64(encoder.stats[ENC_PAL4_CACHE])/ftotal*100, int(math.Round(float64(encoder.stats[ENC_PAL4_CACHE])/float64(encoder.stat_firsts[ENC_PAL4_CACHE]))))
+	fmt.Printf("  pal8:   | %2.f %% | %d\n", float64(encoder.stats[ENC_PAL8])/ftotal*100, int(math.Round(float64(encoder.stats[ENC_PAL8])/float64(encoder.stat_firsts[ENC_PAL8]))))
+	fmt.Printf("  pal8c:  | %2.f %% | %d\n", float64(encoder.stats[ENC_PAL8_CACHE])/ftotal*100, int(math.Round(float64(encoder.stats[ENC_PAL8_CACHE])/float64(encoder.stat_firsts[ENC_PAL8_CACHE]))))
+	fmt.Printf("  raw:    | %2.f %% | %d\n", float64(encoder.stats[ENC_RAW])/ftotal*100, int(math.Round(float64(encoder.stats[ENC_RAW])/float64(encoder.stat_firsts[ENC_RAW]))))
 }
 
 //endregion
