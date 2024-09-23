@@ -245,9 +245,10 @@ type Result struct {
 }
 
 type MotionVector struct {
-	X     int     `json:"x"`
-	Y     int     `json:"y"`
-	Error float64 `json:"err"`
+	X      int     `json:"x"`
+	Y      int     `json:"y"`
+	Error  float64 `json:"err"`
+	Result *ImageBlock
 }
 
 func getXY(im []int, x int, y int, width int, height int) int {
@@ -397,9 +398,37 @@ func compareBlock(block ImageBlock, image []int, x int, y int, width int, height
 	return acc
 }
 
+func copyBlock(block *ImageBlock, image []int, x int, y int, width int, height int) {
+	if x < 0 || x+4 >= width || y < 0 || y+4 >= height {
+		return
+	}
+	for iy := 0; iy < 4; iy++ {
+		for ix := 0; ix < 4; ix++ {
+			blockIndex := ix + 4*iy
+			mx := ix + x
+			my := iy + y
+			if mx < 0 {
+				mx = 0
+			}
+			if mx >= width {
+				mx = width - 1
+			}
+			if my < 0 {
+				my = 0
+			}
+			if my >= height {
+				my = height - 1
+			}
+			imageIndex := mx + width*(my)
+			block[blockIndex] = image[imageIndex]
+		}
+	}
+}
+
 func findBestOffset(block ImageBlock, bx int, by int, image []int, width int, height int, comp *PalComp) MotionVector {
 	bestScore := math.MaxFloat64
 	bestOffset := Offset{0, 0}
+	bestBlock := ImageBlock{}
 	for _, offset := range offsets {
 		score := compareBlock(block, image, bx*4+offset.X, by*4+offset.Y, width, height, comp)
 		if score < bestScore {
@@ -407,10 +436,12 @@ func findBestOffset(block ImageBlock, bx int, by int, image []int, width int, he
 			bestOffset = offset
 		}
 	}
+	copyBlock(&bestBlock, image, bx*4+bestOffset.X, by*4+bestOffset.Y, width, height)
 	return MotionVector{
-		X:     bestOffset.X,
-		Y:     bestOffset.Y,
-		Error: bestScore,
+		X:      bestOffset.X,
+		Y:      bestOffset.Y,
+		Error:  bestScore,
+		Result: &bestBlock,
 	}
 }
 

@@ -513,6 +513,15 @@ func (encoder *FrameEncoder) Pack() []byte {
 			for _, pd := range enc.PixelData {
 				result = writeInts(result, pd)
 			}
+		case ENC_MOTION:
+			if enc.Count <= ShortSize {
+				result = append(result, ENC_MOTION|getShortLength(enc.Count))
+			} else {
+				result = append(result, ENC_MOTION_LONG|getLongLengthHi(enc.Count))
+				result = append(result, getLongLengthLo(enc.Count))
+			}
+			var data uint8 = ((byte(enc.MetaData[0]) & 0b00001111) << 4) | (byte(enc.MetaData[1]) & 0b00001111)
+			result = append(result, data)
 		}
 	}
 	return result
@@ -520,7 +529,10 @@ func (encoder *FrameEncoder) Pack() []byte {
 
 func (encoder *FrameEncoder) IsClean() bool {
 	for _, block := range encoder.chain {
-		if block.BlockType == ENC_SKIP || block.BlockType == ENC_SKIP_LONG {
+		if block.BlockType == ENC_SKIP ||
+			block.BlockType == ENC_SKIP_LONG ||
+			block.BlockType == ENC_MOTION ||
+			block.BlockType == ENC_MOTION_LONG {
 			return false
 		}
 	}
@@ -536,6 +548,7 @@ func (encoder *FrameEncoder) PrintStats() {
 	fmt.Printf("  skip:   %2.f %%\n", float64(encoder.stats[ENC_SKIP])/ftotal*100)
 	fmt.Printf("  repeat: %2.f %%\n", float64(encoder.stats[ENC_REPEAT])/ftotal*100)
 	fmt.Printf("  solid:  %2.f %%\n", float64(encoder.stats[ENC_SOLID])/ftotal*100)
+	fmt.Printf("  motion: %2.f %%\n", float64(encoder.stats[ENC_MOTION])/ftotal*100)
 	fmt.Printf("  pal2:   %2.f %%\n", float64(encoder.stats[ENC_PAL2])/ftotal*100)
 	fmt.Printf("  pal2c:  %2.f %%\n", float64(encoder.stats[ENC_PAL2_CACHE])/ftotal*100)
 	fmt.Printf("  pal4:   %2.f %%\n", float64(encoder.stats[ENC_PAL4])/ftotal*100)
@@ -644,7 +657,7 @@ func SuggestSolidCont(source *ImageBlock, encoder *FrameEncoder) *EncodeSuggesti
 	return result
 }
 
-func getSubColor(source int, pal Palette, pc *PalComp, subpal []int) int {
+func getSubColor(source int, pc *PalComp, subpal []int) int {
 	best := math.MaxFloat64
 	result := 0
 	for i, index := range subpal {
@@ -658,12 +671,12 @@ func getSubColor(source int, pal Palette, pc *PalComp, subpal []int) int {
 	return result
 }
 
-func applySubpal(source *ImageBlock, pal Palette, pc *PalComp, subpal []int) (data *ImageBlock, result *ImageBlock) {
+func applySubpal(source *ImageBlock, pc *PalComp, subpal []int) (data *ImageBlock, result *ImageBlock) {
 	data = &ImageBlock{}
 	result = &ImageBlock{}
 
 	for i, color := range source {
-		newColor := getSubColor(color, pal, pc, subpal)
+		newColor := getSubColor(color, pc, subpal)
 		data[i] = newColor
 		result[i] = subpal[newColor]
 	}
@@ -693,7 +706,7 @@ func encodingToColors(encoding byte) (colors int, cache int) {
 func SuggestSubColor(source *ImageBlock, encoder *FrameEncoder, encoding byte) *EncodeSuggestion {
 	colorNum, _ := encodingToColors(encoding)
 	data := calcSubpal(source, encoder.pal, colorNum)
-	pixels, resultBlock := applySubpal(source, encoder.pal, encoder.pc, data)
+	pixels, resultBlock := applySubpal(source, encoder.pc, data)
 	score := CompareBlocks(source, resultBlock, encoder.pal, encoder.pc)
 
 	result := &EncodeSuggestion{
@@ -717,7 +730,7 @@ func SuggestSubColorCont(source *ImageBlock, encoder *FrameEncoder) *EncodeSugge
 		_, cacheind := encodingToColors(encoding)
 		subpal = encoder.palcache[cacheind].Pals[encoder.GetLastSuggestion().MetaData[0]]
 	}
-	pixels, resultBlock := applySubpal(source, encoder.pal, encoder.pc, subpal)
+	pixels, resultBlock := applySubpal(source, encoder.pc, subpal)
 	score := CompareBlocks(source, resultBlock, encoder.pal, encoder.pc)
 
 	result := &EncodeSuggestion{
@@ -739,7 +752,7 @@ func SuggestSubColorCache(source *ImageBlock, encoder *FrameEncoder, encoding by
 	var bestPixels *ImageBlock
 	var bestResult *ImageBlock
 	for i, subpal := range encoder.palcache[cacheInd].GetPals() {
-		pixels, resultBlock := applySubpal(source, encoder.pal, encoder.pc, subpal)
+		pixels, resultBlock := applySubpal(source, encoder.pc, subpal)
 		score := CompareBlocks(source, resultBlock, encoder.pal, encoder.pc)
 		if score < minscore {
 			minscore = score
@@ -756,6 +769,32 @@ func SuggestSubColorCache(source *ImageBlock, encoder *FrameEncoder, encoding by
 		First:     true,
 		Score:     minscore,
 		Result:    bestResult,
+	}
+
+	return result
+}
+
+func SuggestMotion(source *ImageBlock, encoder *FrameEncoder, vector *MotionVector) *EncodeSuggestion {
+	result := &EncodeSuggestion{
+		Encoding:  ENC_MOTION,
+		MetaData:  []int{vector.X, vector.Y},
+		PixelData: nil,
+		First:     true,
+		Score:     vector.Error,
+		Result:    vector.Result,
+	}
+
+	return result
+}
+
+func SuggestMotionCont(source *ImageBlock, encoder *FrameEncoder, vector *MotionVector) *EncodeSuggestion {
+	result := &EncodeSuggestion{
+		Encoding:  ENC_MOTION,
+		MetaData:  nil,
+		PixelData: nil,
+		First:     false,
+		Score:     vector.Error,
+		Result:    vector.Result,
 	}
 
 	return result
@@ -884,6 +923,23 @@ func ChoosePal8CacheCont(input *ImageBlock, prev *ImageBlock, index int, encoder
 
 func ChooseRaw(input *ImageBlock, prev *ImageBlock, index int, encoder *FrameEncoder) *EncodeSuggestion {
 	return SuggestRaw(input, encoder.GetLastSuggestion() != nil && encoder.GetLastSuggestion().BlockType == ENC_RAW && encoder.GetLastSuggestion().Count < LongSize)
+}
+
+func ChooseMotion(input *ImageBlock, prev *ImageBlock, index int, encoder *FrameEncoder) *EncodeSuggestion {
+	return SuggestMotion(input, encoder, &encoder.vectors[index])
+}
+
+func ChooseMotionCont(input *ImageBlock, prev *ImageBlock, index int, encoder *FrameEncoder) *EncodeSuggestion {
+	x := encoder.vectors[index].X
+	y := encoder.vectors[index].Y
+	if encoder.GetLastSuggestion() == nil ||
+		encoder.GetLastSuggestion().BlockType != ENC_MOTION ||
+		encoder.GetLastSuggestion().Count >= LongSize ||
+		encoder.GetLastSuggestion().MetaData[0] != x ||
+		encoder.GetLastSuggestion().MetaData[1] != y {
+		return nil
+	}
+	return SuggestMotionCont(input, encoder, &encoder.vectors[index])
 }
 
 //endregion
