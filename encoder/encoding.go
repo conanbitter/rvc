@@ -49,13 +49,21 @@ type PaletteCache struct {
 }
 
 type FrameEncoder struct {
-	chain     []EncodedBlock
-	pal       Palette
-	lastFrame []ImageBlock
-	palcache  [3]*PaletteCache
-	treshold  float64
-	stats     map[byte]uint
-	pc        *PalComp
+	chain        []EncodedBlock
+	pal          Palette
+	lastFrame    []ImageBlock
+	lastFrameRaw []int
+	palcache     [3]*PaletteCache
+	treshold     float64
+	stats        map[byte]uint
+	pc           *PalComp
+
+	frameWidth   int
+	frameHeight  int
+	blocksWidth  int
+	blocksHeight int
+	curve        []int
+	vectors      []MotionVector
 }
 
 type Chooser func(input *ImageBlock, prev *ImageBlock, index int, encoder *FrameEncoder) *EncodeSuggestion
@@ -167,7 +175,7 @@ func (palcache *PaletteCache) GetPals() [][]int {
 
 //region ENCODER
 
-func NewEncoder(pal Palette, pc *PalComp, treshold float64) *FrameEncoder {
+func NewEncoder(pal Palette, pc *PalComp, treshold float64, width int, height int, bw int, bh int, curve []int) *FrameEncoder {
 	return &FrameEncoder{
 		chain:     make([]EncodedBlock, 0),
 		pal:       pal,
@@ -176,6 +184,12 @@ func NewEncoder(pal Palette, pc *PalComp, treshold float64) *FrameEncoder {
 		treshold:  treshold,
 		stats:     make(map[byte]uint),
 		pc:        pc,
+
+		frameWidth:   width,
+		frameHeight:  height,
+		blocksWidth:  bw,
+		blocksHeight: bh,
+		curve:        curve,
 	}
 }
 
@@ -319,6 +333,17 @@ func ChooseEncoding(input *ImageBlock, treshold float64, prev *ImageBlock, index
 }
 
 func (encoder *FrameEncoder) Encode(frame []ImageBlock) {
+	vectors := CalculateMotionVectors(
+		frame,
+		encoder.blocksWidth,
+		encoder.blocksHeight,
+		encoder.lastFrameRaw,
+		encoder.frameWidth,
+		encoder.frameHeight,
+		encoder.pc)
+	encoder.vectors = ApplyCurveMotion(vectors, encoder.curve)
+	frame = ApplyCurve(frame, encoder.curve)
+
 	encoder.chain = make([]EncodedBlock, 0)
 	encoder.palcache[0].Reset()
 	encoder.palcache[1].Reset()
@@ -355,6 +380,8 @@ func (encoder *FrameEncoder) Encode(frame []ImageBlock) {
 	fmt.Printf("  raw:    %2.f %%   (%d)\n", float64(counts[ENC_RAW])/float64(len(frame))*100, counts[ENC_RAW])*/
 
 	encoder.lastFrame = newLastFrame
+	unwrapped := UnwrapCurve(encoder.lastFrame, encoder.curve)
+	encoder.lastFrameRaw, _, _ = BlocksToImage(unwrapped, encoder.blocksWidth, encoder.blocksHeight)
 	//outimg, outw, outh := BlocksToImage(newLastFrame, 80, 60)
 	//ImageSave("../data/enctest/test_enc.png", outimg, outw, outh, encoder.pal)
 	//fmt.Println(len(encoder.chain), len(frame))

@@ -76,7 +76,7 @@ func EncBlockTest2(filename string, useHilbert bool, debugOutput bool, useEncode
 	if useEncoder != nil {
 		encoder = useEncoder
 	} else {
-		encoder = NewEncoder(pal, nil, 0.02)
+		encoder = NewEncoder(pal, nil, 0.02, imwidth, imheight, bw, bh, curve)
 	}
 	lastFrame := encoder.lastFrame
 	encoder.Encode(blocks)
@@ -137,7 +137,7 @@ func EncBlockTest3(filename string, useHilbert bool, useEncoder *FrameEncoder) *
 	if useEncoder != nil {
 		encoder = useEncoder
 	} else {
-		encoder = NewEncoder(pal, nil, 0.02)
+		encoder = NewEncoder(pal, nil, 0.02, imwidth, imheight, bw, bh, curve)
 	}
 	encoder.Encode(blocks)
 
