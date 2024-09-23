@@ -69,10 +69,10 @@ type FrameEncoder struct {
 type Chooser func(input *ImageBlock, prev *ImageBlock, index int, encoder *FrameEncoder) *EncodeSuggestion
 
 var DecisionGraph = [][]Chooser{
-	{ChooseSkipCont, ChooseRepeatCont, ChooseSolidCont},    // Tier 1 (0 bytes)
-	{ChooseSkip, ChooseRepeat},                             // Tier 2 (1 byte)
-	{ChooseSolid, ChoosePal2Cont, ChoosePal2CacheCont},     // Tier 3 (2 bytes)
-	{ChoosePal2Cache, ChoosePal4Cont, ChoosePal4CacheCont}, // Tier 4 (4 bytes)
+	{ChooseSkipCont, ChooseRepeatCont, ChooseSolidCont, ChooseMotionCont}, // Tier 1 (0 bytes)
+	{ChooseSkip, ChooseRepeat},                                       // Tier 2 (1 byte)
+	{ChooseSolid, ChoosePal2Cont, ChoosePal2CacheCont, ChooseMotion}, // Tier 3 (2 bytes)
+	{ChoosePal2Cache, ChoosePal4Cont, ChoosePal4CacheCont},           // Tier 4 (4 bytes)
 	{ChoosePal2}, // Tier 5 (5 bytes)
 	{ChoosePal4Cache, ChoosePal8Cont, ChoosePal8CacheCont}, // Tier 6 (6 bytes)
 	{ChoosePal8Cache}, // Tier 7 (8 bytes)
