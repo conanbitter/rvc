@@ -13,6 +13,11 @@ typedef struct PaletteCache {
     int colors;
 } PaletteCache;
 
+typedef struct BlockPos {
+    int x;
+    int y;
+} BlockPos;
+
 typedef struct Decoder {
     int width;
     int height;
@@ -20,11 +25,12 @@ typedef struct Decoder {
     size_t buffer_size;
     size_t buffer_capacity;
     Block* blocks;
-    Block* last_blocks;
+    uint8_t* prev_frame;
     size_t block_data_size;
     int blocks_width;
     int blocks_height;
     int* curve;
+    BlockPos* reverse_curve;
     PaletteCache cache[3];
 } Decoder;
 

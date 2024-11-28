@@ -21,8 +21,8 @@ const Point INIT_POINTS[4] = {
 #define ENC_REPEAT_LONG 0x30
 #define ENC_SOLID 0x40
 #define ENC_SOLID_LONG 0x50
-#define ENC_SOLID_SEP 0x60
-#define ENC_SOLID_SEP_LONG 0x70
+#define ENC_MOTION 0x60
+#define ENC_MOTION_LONG 0x70
 #define ENC_PAL2 0x80
 #define ENC_PAL2_CACHE 0x90
 #define ENC_PAL4 0xA0
@@ -98,6 +98,18 @@ static int* get_hilbert_curve(int width, int height) {
         curve[p.x - offsetx + (p.y - offsety) * width] = i;
     }
     return curve;
+}
+
+static BlockPos* get_reverse_curve(int width, int height, int* curve) {
+    BlockPos* result = calloc(width * height, sizeof(BlockPos));
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            int index = x + y * width;
+            result[curve[index]].x = x;
+            result[curve[index]].y = y;
+        }
+    }
+    return result;
 }
 
 //== BINARY DATA ==//
@@ -206,8 +218,9 @@ Decoder* dec_new(int frame_width, int frame_height) {
     dec->blocks_width = ceil((float)frame_width / 4.0);
     dec->blocks_height = ceil((float)frame_height / 4.0);
     dec->blocks = calloc(dec->blocks_width * dec->blocks_height, sizeof(Block));
-    // result->last_blocks = malloc(result->block_data_size);
+    dec->prev_frame = calloc(dec->blocks_width * dec->blocks_height * 4 * 4, sizeof(uint8_t));
     dec->curve = get_hilbert_curve(dec->blocks_width, dec->blocks_height);
+    dec->reverse_curve = get_reverse_curve(dec->blocks_width, dec->blocks_height, dec->curve);
 
     palcache_init(&dec->cache[0], 2);
     palcache_init(&dec->cache[1], 4);
@@ -218,7 +231,9 @@ Decoder* dec_new(int frame_width, int frame_height) {
 void dec_free(Decoder** dec) {
     free((*dec)->buffer);
     free((*dec)->curve);
+    free((*dec)->reverse_curve);
     free((*dec)->blocks);
+    free((*dec)->prev_frame);
     palcache_free(&(*dec)->cache[0]);
     palcache_free(&(*dec)->cache[1]);
     palcache_free(&(*dec)->cache[2]);
@@ -235,7 +250,7 @@ static decode_blocks(Decoder* dec) {
     while (ind < dec->buffer_size) {
         uint8_t block_type = dec->buffer[ind] & 0b11110000;
         int block_length = 0;
-        if (block_type == ENC_RAW_LONG || block_type == ENC_REPEAT_LONG || block_type == ENC_SKIP_LONG || block_type == ENC_SOLID_LONG || block_type == ENC_SOLID_SEP_LONG) {
+        if (block_type == ENC_RAW_LONG || block_type == ENC_REPEAT_LONG || block_type == ENC_SKIP_LONG || block_type == ENC_SOLID_LONG || block_type == ENC_MOTION_LONG) {
             block_length = ((int)(dec->buffer[ind] & 0b1111) << 8) + dec->buffer[ind + 1];
             ind++;
         } else {
@@ -253,6 +268,7 @@ static decode_blocks(Decoder* dec) {
                 int src = bi - 1;
                 for (int i = 0; i < block_length; i++) {
                     memcpy(&dec->blocks[bi], &dec->blocks[src], sizeof(Block));
+                    memset(&dec->blocks[bi], 255, sizeof(Block));
                     bi++;
                 }
             } break;
@@ -261,6 +277,29 @@ static decode_blocks(Decoder* dec) {
                 int color = dec->buffer[ind++];
                 for (int i = 0; i < block_length; i++) {
                     memset(&dec->blocks[bi], color, sizeof(Block));
+                    bi++;
+                }
+            } break;
+            case ENC_MOTION:
+            case ENC_MOTION_LONG: {
+                int data = dec->buffer[ind++];
+                int dx = ((data >> 4) & 0b1111) - 7;
+                int dy = (data & 0b1111) - 7;
+                for (int i = 0; i < block_length; i++) {
+                    int x = dec->reverse_curve[bi].x * 4;
+                    int y = dec->reverse_curve[bi].y * 4;
+                    memcpy(&dec->blocks[bi][4 * 0], &dec->prev_frame[x + dx + (y + dy + 0) * dec->blocks_width * 4], sizeof(uint8_t) * 4);
+                    memcpy(&dec->blocks[bi][4 * 1], &dec->prev_frame[x + dx + (y + dy + 1) * dec->blocks_width * 4], sizeof(uint8_t) * 4);
+                    memcpy(&dec->blocks[bi][4 * 2], &dec->prev_frame[x + dx + (y + dy + 2) * dec->blocks_width * 4], sizeof(uint8_t) * 4);
+                    memcpy(&dec->blocks[bi][4 * 3], &dec->prev_frame[x + dx + (y + dy + 3) * dec->blocks_width * 4], sizeof(uint8_t) * 4);
+                    /*memcpy(&dec->blocks[bi] + 4 * 0, dec->prev_frame + x + (y + 0) * dec->width, sizeof(uint8_t) * 4);
+                    memcpy(&dec->blocks[bi] + 4 * 1, dec->prev_frame + x + (y + 1) * dec->width, sizeof(uint8_t) * 4);
+                    memcpy(&dec->blocks[bi] + 4 * 2, dec->prev_frame + x + (y + 2) * dec->width, sizeof(uint8_t) * 4);
+                    memcpy(&dec->blocks[bi] + 4 * 3, dec->prev_frame + x + (y + 3) * dec->width, sizeof(uint8_t) * 4);*/
+                    // memset(&dec->blocks[bi][0], 0, sizeof(uint8_t) * 4);
+                    //  memset(&dec->blocks[bi][4], 0, sizeof(uint8_t) * 4);
+                    // memset(&dec->blocks[bi][4 * 3], 0, sizeof(uint8_t) * 4);
+                    memset(&dec->blocks[bi], 0, sizeof(Block));
                     bi++;
                 }
             } break;
@@ -348,7 +387,7 @@ static decode_blocks_debug(Decoder* dec) {
     while (ind < dec->buffer_size) {
         uint8_t block_type = dec->buffer[ind] & 0b11110000;
         int block_length = 0;
-        if (block_type == ENC_RAW_LONG || block_type == ENC_REPEAT_LONG || block_type == ENC_SKIP_LONG || block_type == ENC_SOLID_LONG || block_type == ENC_SOLID_SEP_LONG) {
+        if (block_type == ENC_RAW_LONG || block_type == ENC_REPEAT_LONG || block_type == ENC_SKIP_LONG || block_type == ENC_SOLID_LONG || block_type == ENC_MOTION_LONG) {
             block_length = ((int)(dec->buffer[ind] & 0b1111) << 8) + dec->buffer[ind + 1];
             ind++;
         } else {
@@ -363,6 +402,8 @@ static decode_blocks_debug(Decoder* dec) {
         switch (block_type) {
             case ENC_SOLID:
             case ENC_SOLID_LONG:
+            case ENC_MOTION:
+            case ENC_MOTION_LONG:
                 ind++;
                 break;
             case ENC_PAL2:
@@ -400,6 +441,19 @@ static decode_blocks_debug(Decoder* dec) {
     }
 }
 
+static unwrap_blocks(Decoder* dec) {
+    for (int y = 0; y < dec->blocks_height * 4; y++)
+        for (int x = 0; x < dec->blocks_width * 4; x++) {
+            int pi = x + y * dec->blocks_width * 4;
+            int bi = x / 4 + y / 4 * dec->blocks_width;
+            bi = dec->curve[bi];
+            int bx = x % 4;
+            int by = y % 4;
+            int bpi = bx + by * 4;
+            dec->prev_frame[pi] = dec->blocks[bi][bpi];
+        }
+}
+
 static unwrap_pixels(Decoder* dec, uint8_t* dst) {
     for (int y = 0; y < dec->height; y++)
         for (int x = 0; x < dec->width; x++) {
@@ -426,5 +480,6 @@ void dec_decode(Decoder* dec, FILE* file, uint32_t length, uint8_t* dest, int de
     } else {
         decode_blocks(dec);
     }
+    unwrap_blocks(dec);
     unwrap_pixels(dec, dest);
 }
